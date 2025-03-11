@@ -1,0 +1,5 @@
+{:database {:url #env MANGA_STREAM_DATABASE_URL
+            :user #env MANGA_STREAM_DATABASE_USER
+            :password #env MANGA_STREAM_DATABASE_PASSWORD}
+
+ :application {:port #env MANGA_STREAM_SERVER_PORT}}
