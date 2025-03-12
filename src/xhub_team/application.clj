@@ -8,7 +8,22 @@
             [reitit.dev.pretty :as pretty]
             [reitit.ring.middleware.muuntaja :as muuntaja]
             [reitit.ring.middleware.parameters :as parameters]
-            [muuntaja.core :as m]))
+            [muuntaja.core :as m]
+            [clojure.spec.alpha :as s]
+            [xhub-team.infrastructure :as infra]))
+
+;; Спецификация для одного элемента манги
+(s/def ::id string?)
+(s/def ::name string?)
+(s/def ::description (s/nilable string?))
+(s/def ::created-at string?)
+(s/def ::page-list (s/coll-of string?))
+(s/def ::manga (s/keys :req-un [::id ::name ::description]))
+
+;; Спецификация для массива манги
+(s/def ::manga-list (s/coll-of ::manga))
+
+(s/def ::full-manga (s/keys :req-un [::id ::name ::description ::created-at ::page-list]))
 
 (def app
   (ring/ring-handler
@@ -39,7 +54,36 @@
                  :responses {200 {:body {:total int?} }}
                  :handler (fn [{{{:keys [x y]} :body} :parameters}]
                             {:status 200
-                             :body {:total (+ x y)}})}}]]]
+                             :body {:total (+ x y)}})}}]]
+       ["/search"
+        {:get {:responses {200 {:body ::manga-list }}
+               :handler (fn [_] {:status 200
+                                 :body (map (fn [manga]
+                                              {:id (.toString (:manga/id manga))
+                                               :name (:manga/name manga)
+                                               :description (:manga/description manga)}) (infra/get-manga-list))})}}]
+       ["/manga"
+       {:get {:responses {200 {:body ::full-manga}}
+              :parameters {:query {:id string?}}
+              :handler (fn [{{{:keys [id]} :query} :parameters}]
+                        {:status 200
+                         :body (let [manga (first (infra/get-manga-by-id (java.util.UUID/fromString id)))]
+                                 {:id (.toString (:manga/id manga))
+                                  :name (:manga/name manga)
+                                  :description (:manga/description manga)
+                                  :created-at (.toString (:manga/created_at manga))
+                                  :page-list (vec (.getArray (:array_agg manga)))}) })}
+        :post {:responses {200 {:body {:id string?}}}
+               :parameters {:body {:name string? :description (s/nilable string?) }}
+               :handler (fn [{{{:keys [name description]} :body} :parameters}]
+                          (println name description)
+                          (let [id (java.util.UUID/randomUUID)
+                                db-id (-> (infra/create-manga id name description)
+                                          first
+                                          :manga/id
+                                          .toString)]
+                             {:status 200
+                             :body {:id db-id} })) }}]]
 
       {
        :exception pretty/exception
