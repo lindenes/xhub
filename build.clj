@@ -3,9 +3,9 @@
   (:require [clojure.tools.deps :as t]
             [clojure.tools.build.api :as b]))
 
-(def lib 'net.clojars.xhub-team/core-service)
+(def lib 'net.clojars.xhub-team/xhub)
 (def version "0.1.0-SNAPSHOT")
-(def main 'xhub-team.core-service)
+(def main 'xhub-team.xhub)
 (def class-dir "target/classes")
 
 (defn test "Run all the tests." [opts]

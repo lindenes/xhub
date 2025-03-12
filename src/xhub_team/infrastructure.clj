@@ -21,7 +21,8 @@
 
 (defn get-manga-list []
   (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["select * from manga"])]
+              stmt (jdbc/prepare conn ["select distinct on(m.id) m.id, m.name, m.description, mp.oid
+                                        from manga m left join manga_page mp on mp.manga_id = m.id"])]
     (jdbc/execute! stmt))
   )
 
