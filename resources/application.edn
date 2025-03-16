@@ -1,5 +1,10 @@
-{:database {:url #Env MANGA_STREAM_DATABASE_URL
-            :user #env MANGA_STREAM_DATABASE_USER
-            :password #env MANGA_STREAM_DATABASE_PASSWORD}
+{:database {:url #env XHUB_DATABASE_URL
+            :user #env XHUB_DATABASE_USER
+            :password #env XHUB_DATABASE_PASSWORD}
 
- :application {:port #env MANGA_STREAM_SERVER_PORT}}
+ :application {:port #env XHUB_SERVER_PORT}
+ :smtp {:host #env XHUB_SMPTP_HOST
+        :auth-enable #env XHUB_SMTP_AUTH_ENABLE
+        :tls-enable #env XHUB_SMTP_TLS_ENABLE
+        :mail #env XHUB_SMTP_MAIL
+        :password #env XHUB_SMTP_PASSWORD}}

@@ -2,7 +2,36 @@
   (:require [xhub-team.configuration :as conf]
              [next.jdbc :as jdbc]
             [pg.core :as pg])
-  (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]))
+  (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]
+            [jakarta.mail Session Message Transport Message$RecipientType]
+            [jakarta.mail.internet InternetAddress MimeMessage]))
+
+(def session
+  (let [props (doto (java.util.Properties.)
+                (.put "mail.smtp.host" (:host conf/config->smtp))
+                (.put "mail.smtp.auth" (:auth-enable conf/config->smtp))
+                (.put "mail.smtp.starttls.enable" (:tls-enable conf/config->smtp)))
+        session  (Session/getInstance props
+                                      (proxy [jakarta.mail.Authenticator] []
+                                        (getPasswordAuthentication []
+                                          (jakarta.mail.PasswordAuthentication.
+                                           (:mail conf/config->smtp)
+                                           (:password conf/config->smtp)))))]
+    session))
+
+(defn send-message [from to subject body]
+  (let [message (MimeMessage. session)]
+    (.setFrom message (InternetAddress. from))
+    (.setRecipient message Message$RecipientType/TO (InternetAddress. to))
+    (.setSubject message subject)
+    (.setText message body)
+    (Transport/send message)))
+
+;; Пример использования
+(defn test-send [] (send-message "info@hentai-hub.online"
+            "dodigrams@gmail.com"
+            "Test Subject"
+            "This is a test email."))
 
 (def datasource
   (let [config (HikariConfig.)

@@ -1,4 +1,4 @@
 (ns xhub-team.errors)
 
 (def validate-error
-  {:error-code 1 :error-message "Не верный формат запроса"})
+  {:error_code 1 :error_message "Не верный формат запроса"})

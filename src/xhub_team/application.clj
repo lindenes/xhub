@@ -5,22 +5,45 @@
             [reitit.swagger :as swagger]
             [reitit.swagger-ui :as swagger-ui]
             [reitit.ring.coercion :as coercion]
+            [clojure.tools.logging :as log]
             [reitit.dev.pretty :as pretty]
             [reitit.ring.middleware.muuntaja :as muuntaja]
             [reitit.ring.middleware.parameters :as parameters]
             [muuntaja.core :as m]
             [clojure.spec.alpha :as s]
-            [xhub-team.infrastructure :as infra]))
+            [xhub-team.infrastructure :as infra]
+            [xhub-team.errors :as app-errors]
+            [clojure.data.json :as json]))
 
 (defn cors-middleware [handler]
   (fn [request]
-    (println "Middleware: request received" (:uri request))
+    (log/info request)
     (let [response (handler request)]
-      (println "Middleware: response sent" (:status response))
       (-> response
           (assoc-in [:headers "Access-Control-Allow-Origin"] "*")
           (assoc-in [:headers "Access-Control-Allow-Methods"] "*")
           (assoc-in [:headers "Access-Control-Allow-Headers"] "*")))))
+
+(defn error->response [error]
+  (let [data (ex-data error)
+        code (:error_code data)]
+    (log/error data)
+    (let [error-map (cond
+                      (contains? data :spec)
+                      {:status 400 :body app-errors/validate-error }
+
+                      :else
+                      (condp = code
+                            {:status 500 :body "Unexpected server error"}) )]
+         (-> error-map
+             (assoc :body (json/write-str (:body error-map)))
+             (assoc-in [:headers "Content-Type"] "application/json")))))
+
+(defn error-wrapper [handler]
+  (fn [request]
+    (try (handler request)
+         (catch Exception e (error->response e)) )
+    ))
 
 
 ;; Спецификация для одного элемента манги
@@ -62,14 +85,14 @@
                          {:status 200
                           :body {:total (+ x y)}})}
         :post {:summary "plus with spec body parameters"
-               :parameters {:body {:x int? :y int?}} ;
+               :parameters {:body {:x int? :y int?}}
                :responses {200 {:body {:total int?}}}
                :handler (fn [{{{:keys [x y]} :body} :parameters}]
                           {:status 200
                            :body {:total (+ x y)}})}}]]
      ["/search"
       {:post {:responses {200 {:body ::manga_list}}
-              :parameters {:body {:limit int? :offset int?}}
+              :parameters {:body {:limit pos-int? :offset pos-int?}}
               :handler (fn [{{{:keys [limit offset]} :body} :parameters}]
                          {:status 200
                           :body (map (fn [manga]
@@ -104,7 +127,8 @@
     {:exception pretty/exception
      :data {:coercion reitit.coercion.spec/coercion
             :muuntaja m/instance
-            :middleware [cors-middleware
+            :middleware [error-wrapper
+                         cors-middleware
                          swagger/swagger-feature
                          parameters/parameters-middleware
                          muuntaja/format-negotiate-middleware

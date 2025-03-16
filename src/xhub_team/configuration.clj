@@ -5,3 +5,5 @@
 (def config
   (aero/read-config
    (io/resource "application.edn")))
+
+(def config->smtp (:smtp config))
