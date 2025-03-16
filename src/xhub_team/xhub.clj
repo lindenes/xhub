@@ -2,6 +2,7 @@
   (:require [org.httpkit.server :as hk-server]
             [ring.middleware.params :refer [wrap-params]]
             [xhub-team.configuration :as conf]
+            [xhub-team.domain :as domain]
             [xhub-team.infrastructure :as infra])
   (:use xhub-team.application)
   (:gen-class))
@@ -10,7 +11,7 @@
 
 (defn -main
   [& args]
-  (infra/test-send)
+  (domain/background-task)
   (println "server start with port" (conf/config :application))
   (hk-server/run-server app (conf/config :application)))
 

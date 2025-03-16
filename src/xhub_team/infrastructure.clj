@@ -15,7 +15,7 @@
                                       (proxy [jakarta.mail.Authenticator] []
                                         (getPasswordAuthentication []
                                           (jakarta.mail.PasswordAuthentication.
-                                           (:mail conf/config->smtp)
+                                           (:email conf/config->smtp)
                                            (:password conf/config->smtp)))))]
     session))
 
@@ -32,6 +32,13 @@
             "dodigrams@gmail.com"
             "Test Subject"
             "This is a test email."))
+
+(defn send-verification-code [email code]
+  (send-message
+   (:email conf/config->smtp)
+   email
+   "Подтверждение"
+   (str "Код подтверждения " code)))
 
 (def datasource
   (let [config (HikariConfig.)
@@ -68,3 +75,8 @@
               stmt (jdbc/prepare conn ["insert into manga (id,name,description) values (?, ?, ?) returning id" uuid name description])]
     (jdbc/execute! stmt))
   )
+
+(defn add-user [email password]
+  (with-open [conn (jdbc/get-connection datasource)
+              stmt (jdbc/prepare conn ["insert into user (email, password) values (?, ?)" email password])]
+    (jdbc/execute! stmt)))

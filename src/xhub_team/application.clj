@@ -13,7 +13,9 @@
             [clojure.spec.alpha :as s]
             [xhub-team.infrastructure :as infra]
             [xhub-team.errors :as app-errors]
-            [clojure.data.json :as json]))
+            [clojure.data.json :as json]
+            [xhub-team.errors :as err]
+            [xhub-team.domain :as domain]))
 
 (defn cors-middleware [handler]
   (fn [request]
@@ -26,15 +28,21 @@
 
 (defn error->response [error]
   (let [data (ex-data error)
-        code (:error_code data)]
+        error-data (:error-data data)]
     (log/error data)
     (let [error-map (cond
                       (contains? data :spec)
-                      {:status 400 :body app-errors/validate-error }
+                      {:status 400 :body app-errors/request-format-error }
 
                       :else
-                      (condp = code
-                            {:status 500 :body "Unexpected server error"}) )]
+                      (condp = (:error_code (first error-data))
+                        2
+                        {:status 400 :body error-data }
+
+                        3
+                        {:status 400 :body error-data}
+
+                        {:status 500 :body "Unexpected server error"}) )]
          (-> error-map
              (assoc :body (json/write-str (:body error-map)))
              (assoc-in [:headers "Content-Type"] "application/json")))))
@@ -74,22 +82,15 @@
                               :version "0.0.1"}}
              :handler (openapi/create-openapi-handler)}}]
 
-     ["/math"
-      {:tags ["math"]}
+     ["/user"
+      {
+       :tags [:user]
+       :post {:responses {200 {:body nil?}}
+              :parameters {:body {:email string? :password string?}}
+              :handler (fn [{{{:keys [email password]} :body} :parameters}]
+                         (let [token (domain/registration email password)]
+                            {:status 200 :headers {"Token" token} }))}}]
 
-      ["/plus"
-       {:get {:summary "plus with spec query parameters"
-              :parameters {:query {:x int? :y int?}}
-              :responses {200 {:body {:total int?}}}
-              :handler (fn [{{{:keys [x y]} :query} :parameters}]
-                         {:status 200
-                          :body {:total (+ x y)}})}
-        :post {:summary "plus with spec body parameters"
-               :parameters {:body {:x int? :y int?}}
-               :responses {200 {:body {:total int?}}}
-               :handler (fn [{{{:keys [x y]} :body} :parameters}]
-                          {:status 200
-                           :body {:total (+ x y)}})}}]]
      ["/search"
       {:post {:responses {200 {:body ::manga_list}}
               :parameters {:body {:limit pos-int? :offset pos-int?}}
@@ -101,7 +102,8 @@
                                         :description (:manga/description manga)
                                         :preview_id (:manga_page/oid manga)}) (infra/get-manga-list))})}}]
      ["/manga"
-      {:get {:responses {200 {:body ::full_manga}}
+      {:tags [:manga]
+       :get {:responses {200 {:body ::full_manga}}
              :parameters {:query {:id string?}}
              :handler (fn [{{{:keys [id]} :query} :parameters}]
                         {:status 200
@@ -115,7 +117,6 @@
        :post {:responses {200 {:body {:id string?}}}
               :parameters {:body {:name string? :description (s/nilable string?)}}
               :handler (fn [{{{:keys [name description]} :body} :parameters}]
-                         (println name description)
                          (let [id (java.util.UUID/randomUUID)
                                db-id (-> (infra/create-manga id name description)
                                          first
