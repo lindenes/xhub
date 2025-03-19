@@ -76,7 +76,7 @@
     (jdbc/execute! stmt))
   )
 
-(defn add-user [email password]
+(defn add-user [id email password]
   (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["insert into user (email, password) values (?, ?)" email password])]
+              stmt (jdbc/prepare conn ["insert into \"user\" (id, email, password) values (cast(? as uuid), ?, ?)" id email password])]
     (jdbc/execute! stmt)))

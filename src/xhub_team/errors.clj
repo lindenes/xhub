@@ -15,3 +15,6 @@
                         acc
                         current-error))
           (if (sequential? errors) (first errors) errors)))
+
+(def accept-code-error
+  {:error-data (list {:error_code 4 :error_message "Код подтверждения не совпадает"})})

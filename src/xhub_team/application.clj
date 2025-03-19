@@ -42,6 +42,9 @@
                         3
                         {:status 400 :body error-data}
 
+                        4
+                        {:status 400 :body error-data}
+
                         {:status 500 :body "Unexpected server error"}) )]
          (-> error-map
              (assoc :body (json/write-str (:body error-map)))
@@ -90,6 +93,15 @@
               :handler (fn [{{{:keys [email password]} :body} :parameters}]
                          (let [token (domain/registration email password)]
                             {:status 200 :headers {"Token" token} }))}}]
+     ["/accept"
+      {:post {:responses {200 {:body nil}}
+              :parameters {:body {:code int?} :headers {:token string?} }
+              :handler (fn [req]
+                         (let [code (-> req :parameters :body :code)
+                               token (get (:headers req) "token" )]
+                           (domain/confirm-reg code token)
+                           {:status 200})
+                         )}}]
 
      ["/search"
       {:post {:responses {200 {:body ::manga_list}}
