@@ -105,7 +105,7 @@
 
      ["/search"
       {:post {:responses {200 {:body ::manga_list}}
-              :parameters {:body {:limit pos-int? :offset pos-int?}}
+              :parameters {:body {:limit nat-int? :offset nat-int?}}
               :handler (fn [{{{:keys [limit offset]} :body} :parameters}]
                          {:status 200
                           :body (map (fn [manga]
