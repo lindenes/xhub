@@ -45,6 +45,9 @@
                         4
                         {:status 400 :body error-data}
 
+                        5
+                        {:status 404 :body error-data}
+
                         {:status 500 :body "Unexpected server error"}) )]
          (-> error-map
              (assoc :body (json/write-str (:body error-map)))
@@ -102,6 +105,24 @@
                            (domain/confirm-reg code token)
                            {:status 200})
                          )}}]
+     ["/auth"
+      {:post {:responses {200 {:body {:email string? :is_author boolean? :is_prime boolean?}}}
+              :parameters {:body {:email (s/nilable string?) :password (s/nilable string?)} :headers {:token (s/nilable string?)}}
+              :handler (fn [req]
+                         (let [body (-> req :parameters :body)
+                               header_token  (get (:headers req) "token" )
+                               user_data (domain/authorization (:email body) (:password body) header_token )
+                               user (:user user_data)
+                               token (if (nil? (:token user_data))
+                                       header_token
+                                       (:token user_data))]
+                           (println "------------------------------------------------")
+                           (println user_data)
+                           (println user)
+                           {:status 200
+                            :body {:email (:user/email user) :is_author (:user/is_author user) :is_prime (:user/is_prime user)}
+                            :headers {"Token" token}}
+                           ))}}]
 
      ["/search"
       {:post {:responses {200 {:body ::manga_list}}

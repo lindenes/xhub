@@ -80,3 +80,8 @@
   (with-open [conn (jdbc/get-connection datasource)
               stmt (jdbc/prepare conn ["insert into \"user\" (id, email, password) values (cast(? as uuid), ?, ?)" id email password])]
     (jdbc/execute! stmt)))
+
+(defn find-user [email password]
+  (first (with-open [conn (jdbc/get-connection datasource)
+              stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.email = ? and u.password = ?" email password])]
+    (jdbc/execute! stmt))))

@@ -7,15 +7,16 @@
 (def sessions (atom [] ))
 
 (defn add-session
-  ([id email password token code]
+  ([id email password token is_author is_prime code]
   (swap!
    sessions
    (fn [sessions]
      (log/info sessions)
      (cons
-      {:id id :email email :password password :token token :code code :timer (System/currentTimeMillis)}
+      {:id id :email email :password password :token token :is_author is_author :is_prime is_prime :code code :timer (System/currentTimeMillis)}
       sessions))))
-  ([id email password token] (add-session id email password token nil)))
+  ([id email password is_author is_prime token] (add-session id email password is_author is_prime token nil))
+  ([id email password token] (add-session id email password nil nil token nil)))
 
 
 (defn valid-email? [email]
@@ -37,7 +38,7 @@
     (if (empty? validation-errors)
         (let [code (rand-nth (range 1000 10000))
               token (.toString (java.util.UUID/randomUUID)) ]
-          (add-session (.toString (java.util.UUID/randomUUID))  email (sha-256 password) token code)
+          (add-session (.toString (java.util.UUID/randomUUID)) email (sha-256 password) token false false code)
           (infra/send-verification-code email code)
           token
           )
@@ -74,3 +75,18 @@
 
       (throw (ex-info "accept code error" err/accept-code-error ))))
   )
+
+(defn authorization [email password token]
+  (if (nil? token)
+    (let [hashed_password (sha-256 password)
+          user (infra/find-user email hashed_password)
+          token (.toString (java.util.UUID/randomUUID))]
+      (if (nil? user)
+        (throw (ex-info "not found user in database" err/not_found_user_error))
+        (do
+          (add-session (:user/id user) (:user/email user) (:user/password user) token (:user/is_author user) (:user/is_prime user))
+          {:user user :token token}))
+      )
+     (let [user (first (filter (fn [x] (= (:token x) token ))  @sessions) ) ]
+      {:user {:user/email (:email user) :user/is_prime (:is_prime user) :user/is_author (:is_author user)} :token token} )
+    ))

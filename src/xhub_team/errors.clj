@@ -18,3 +18,6 @@
 
 (def accept-code-error
   {:error-data (list {:error_code 4 :error_message "Код подтверждения не совпадает"})})
+
+(def not_found_user_error
+  {:error-data (list {:error_code 5 :error_message "Не верный логин или пароль"})})
