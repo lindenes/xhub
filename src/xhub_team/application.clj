@@ -19,7 +19,9 @@
 
 (defn cors-middleware [handler]
   (fn [request]
-    (log/info request)
+    (log/info "-----------------------------------------")
+    (log/info (:uri request) (:request-method request) (:headers request))
+    (log/debug (:uri request) (:request-method request) (:headers request) (slurp (:body request)) )
     (let [response (handler request)]
       (-> response
           (assoc-in [:headers "Access-Control-Allow-Origin"] "*")
@@ -116,9 +118,6 @@
                                token (if (nil? (:token user_data))
                                        header_token
                                        (:token user_data))]
-                           (println "------------------------------------------------")
-                           (println user_data)
-                           (println user)
                            {:status 200
                             :body {:email (:user/email user) :is_author (:user/is_author user) :is_prime (:user/is_prime user)}
                             :headers {"Token" token}}
@@ -158,11 +157,10 @@
                            {:status 200
                             :body {:id db-id}}))}}]]
 
-    {:exception pretty/exception
-     :data {:coercion reitit.coercion.spec/coercion
+    {:data {:coercion reitit.coercion.spec/coercion
             :muuntaja m/instance
-            :middleware [error-wrapper
-                         cors-middleware
+            :middleware [cors-middleware
+                         error-wrapper
                          swagger/swagger-feature
                          parameters/parameters-middleware
                          muuntaja/format-negotiate-middleware

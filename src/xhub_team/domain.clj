@@ -88,5 +88,9 @@
           {:user user :token token}))
       )
      (let [user (first (filter (fn [x] (= (:token x) token ))  @sessions) ) ]
-      {:user {:user/email (:email user) :user/is_prime (:is_prime user) :user/is_author (:is_author user)} :token token} )
+       (if (nil? user)
+         (throw (ex-info "not found user in session store" err/not_found_user_error))
+         {:user {:user/email (:email user) :user/is_prime (:is_prime user) :user/is_author (:is_author user)} :token token}
+         )
+       )
     ))
