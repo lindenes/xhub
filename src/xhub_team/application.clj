@@ -26,7 +26,8 @@
       (-> response
           (assoc-in [:headers "Access-Control-Allow-Origin"] "*")
           (assoc-in [:headers "Access-Control-Allow-Methods"] "*")
-          (assoc-in [:headers "Access-Control-Allow-Headers"] "*")))))
+          (assoc-in [:headers "Access-Control-Allow-Headers"] "*")
+          (assoc-in [:headers "Access-Control-Expose-Headers"] "token")))))
 
 (defn error->response [error]
   (let [data (ex-data error)
