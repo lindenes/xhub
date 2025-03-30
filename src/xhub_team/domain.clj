@@ -33,15 +33,14 @@
 
 (defn registration [email password]
   (let [validation-errors (filterv (comp not :is-valid) [{:is-valid (valid-email? email) :error err/email-validate-error}
-                           {:is-valid (valid-password? password) :error err/password-validate-error}])]
-    (println validation-errors)
+                                                         {:is-valid (valid-password? password) :error err/password-validate-error}
+                                                         {:is-valid (infra/busy-email? email) :error err/busy-email-error}])]
     (if (empty? validation-errors)
         (let [code (rand-nth (range 1000 10000))
               token (.toString (java.util.UUID/randomUUID)) ]
           (add-session (.toString (java.util.UUID/randomUUID)) email (sha-256 password) token false false code)
           (infra/send-verification-code email code)
-          token
-          )
+          token)
         (throw (ex-info
                 "registration validation errors"
                 (err/error->aggregate (into [] (map (fn [e] (get e :error)) validation-errors)))))

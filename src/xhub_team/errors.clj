@@ -9,6 +9,9 @@
 (def password-validate-error
   {:error-data (list {:error_code 3 :error_message "Введите корректный пароль"}) })
 
+(def busy-email-error
+  {:error-data (list {:error_code 6 :error_message "Пользователь с такой почтой уже зарегистрирован"}) })
+
 (defn error->aggregate [& errors]
   (reduce (fn [acc current-error]
             (merge-with (fn [old new] (concat old new))

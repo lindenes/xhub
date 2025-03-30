@@ -77,6 +77,17 @@
 
 (s/def ::full_manga (s/keys :req-un [::id ::name ::description ::created_at ::page_list]))
 
+
+(s/def ::limit nat-int?)
+(s/def ::offset nat-int?)
+(s/def ::name (s/nilable string?))
+(s/def ::order_by (s/nilable int?))
+(s/def ::tags (s/nilable (s/coll-of int?)))
+
+(s/def ::email (s/nilable string?))
+(s/def ::password (s/nilable string?))
+(s/def ::token (s/nilable string?))
+
 (def app
   (ring/ring-handler
    (ring/router
@@ -110,7 +121,7 @@
                          )}}]
      ["/auth"
       {:post {:responses {200 {:body {:email string? :is_author boolean? :is_prime boolean?}}}
-              :parameters {:body {:email (s/nilable string?) :password (s/nilable string?)} :headers {:token (s/nilable string?)}}
+              :parameters {:body (s/nilable (s/keys :opt-un [::email ::password])) :headers (s/keys :opt-un [::token]) }
               :handler (fn [req]
                          (let [body (-> req :parameters :body)
                                header_token  (get (:headers req) "token" )
@@ -126,14 +137,24 @@
 
      ["/search"
       {:post {:responses {200 {:body ::manga_list}}
-              :parameters {:body {:limit nat-int? :offset nat-int?}}
-              :handler (fn [{{{:keys [limit offset]} :body} :parameters}]
+              :parameters {:body (s/keys :req-un [::limit
+                                                  ::offset]
+                                         :opt-un [::name
+                                                  ::order_by
+                                                  ::tags])}
+              :handler (fn [{{{:keys [limit offset name order-by tags]} :body} :parameters}]
                          {:status 200
                           :body (map (fn [manga]
                                        {:id (.toString (:manga/id manga))
                                         :name (:manga/name manga)
                                         :description (:manga/description manga)
-                                        :preview_id (:manga_page/oid manga)}) (infra/get-manga-list))})}}]
+                                        :preview_id (:manga_page/oid manga)})
+                                     (infra/get-manga-list
+                                       {:limit limit
+                                        :offset offset
+                                        :name (when name (str "%" name "%"))
+                                        :order-by order-by
+                                        :tags tags}))})}}]
      ["/manga"
       {:tags [:manga]
        :get {:responses {200 {:body ::full_manga}}
