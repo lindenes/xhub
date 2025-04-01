@@ -10,4 +10,4 @@
         :password #env XHUB_SMTP_PASSWORD}
  :redis {:host #env XHUB_REDIS_HOST
          :port #env XHUB_REDIS_PORT
-         :password #emv XHUB_REDIS_PASSWORD}}
+         :password #env XHUB_REDIS_PASSWORD}}
