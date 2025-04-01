@@ -7,4 +7,7 @@
         :auth-enable #env XHUB_SMTP_AUTH_ENABLE
         :tls-enable #env XHUB_SMTP_TLS_ENABLE
         :email #env XHUB_SMTP_MAIL
-        :password #env XHUB_SMTP_PASSWORD}}
+        :password #env XHUB_SMTP_PASSWORD}
+ :redis {:host #env XHUB_REDIS_HOST
+         :port #env XHUB_REDIS_PORT
+         :password #emv XHUB_REDIS_PASSWORD}}
