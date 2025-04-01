@@ -11,7 +11,6 @@
 
 (defn -main
   [& args]
-  (domain/background-task)
   (println "server start with port" (conf/config :application))
   (hk-server/run-server app (conf/config :application)))
 

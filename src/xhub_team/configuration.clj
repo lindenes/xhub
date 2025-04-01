@@ -7,3 +7,5 @@
    (io/resource "application.edn")))
 
 (def config->smtp (:smtp config))
+
+(def config->redis (:redis config))

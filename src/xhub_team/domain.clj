@@ -1,23 +1,29 @@
 (ns xhub-team.domain
   (:require [xhub-team.errors :as err]
             [clojure.tools.logging :as log]
-            [xhub-team.infrastructure :as infra])
+            [taoensso.carmine :as car :refer [wcar]]
+            [xhub-team.infrastructure :as infra]
+            [xhub-team.configuration :as conf])
   (:import (java.security MessageDigest)))
 
-(def sessions (atom [] ))
+(defonce my-conn-pool (car/connection-pool {}))
+(def     my-conn-spec conf/config->redis)
+(def     my-wcar-opts {:pool my-conn-pool, :spec my-conn-spec})
+
+(defmacro wcar* [& body] `(car/wcar my-wcar-opts ~@body))
 
 (defn add-session
   ([id email password token is_author is_prime code]
-  (swap!
-   sessions
-   (fn [sessions]
-     (log/info sessions)
-     (cons
-      {:id id :email email :password password :token token :is_author is_author :is_prime is_prime :code code :timer (System/currentTimeMillis)}
-      sessions))))
+  (wcar*
+    (car/set token {:id id :email email :password password :token token :is_author is_author :is_prime is_prime :code code} :ex 1800)
+    ))
   ([id email password is_author is_prime token] (add-session id email password is_author is_prime token nil))
   ([id email password token] (add-session id email password nil nil token nil)))
 
+(defn update-session-time [token]
+  (let [token->user (wcar* (car/get token))]
+    (when token->user
+      (wcar* (car/set token token->user :ex 1800)))))
 
 (defn valid-email? [email]
   (boolean (re-matches #"^[A-Za-z0-9+_.-]+@(.+)$" email)))
@@ -48,30 +54,10 @@
     )
   )
 
-(defn background-task []
-  (future
-    (loop []
-      (log/info "Start clear sessions")
-      (log/info sessions)
-      (swap!
-       sessions
-       (fn [sessions]
-         (filter
-          (fn [session] (> (- (System/currentTimeMillis) (:timer session) ) 1800000) )
-          sessions)
-         ))
-      (log/info sessions)
-      (Thread/sleep (* 30 60 1000))
-      (recur))))
-
 (defn confirm-reg [code token]
-  (println code token @sessions)
-  (let [user (first (filter (fn [x] (= (:token x) token ))  @sessions) ) ]
-    (println user)
+  (let [user (wcar* (car/get token)) ]
     (if (= (:code user) code)
-
       (infra/add-user (:id user)  (:email user) (:password user))
-
       (throw (ex-info "accept code error" err/accept-code-error ))))
   )
 
@@ -86,7 +72,7 @@
           (add-session (:user/id user) (:user/email user) (:user/password user) token (:user/is_author user) (:user/is_prime user))
           {:user user :token token}))
       )
-     (let [user (first (filter (fn [x] (= (:token x) token ))  @sessions) ) ]
+     (let [user  (wcar* (car/get token)) ]
        (if (nil? user)
          (throw (ex-info "not found user in session store" err/not_found_user_error))
          {:user {:user/email (:email user) :user/is_prime (:is_prime user) :user/is_author (:is_author user)} :token token}

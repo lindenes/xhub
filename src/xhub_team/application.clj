@@ -59,8 +59,14 @@
 (defn error-wrapper [handler]
   (fn [request]
     (try (handler request)
-         (catch Exception e (error->response e)) )
-    ))
+         (catch Exception e (error->response e)))))
+
+(defn token-wrapper [handler]
+  (fn [request]
+    (let [token (get (:headers request) "token" )]
+      (do
+        (when token (domain/update-session-time token))
+        (handler request)))))
 
 
 ;; Спецификация для одного элемента манги
@@ -183,6 +189,7 @@
             :muuntaja m/instance
             :middleware [cors-middleware
                          error-wrapper
+                         token-wrapper
                          swagger/swagger-feature
                          parameters/parameters-middleware
                          muuntaja/format-negotiate-middleware
