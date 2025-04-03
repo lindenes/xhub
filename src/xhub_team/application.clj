@@ -154,7 +154,7 @@
                                        {:id (.toString (:manga/id manga))
                                         :name (:manga/name manga)
                                         :description (:manga/description manga)
-                                        :preview_id (:manga_page/id manga)})
+                                        :preview_id (.toString (:manga_page/id manga))})
                                      (infra/get-manga-list
                                        {:limit limit
                                         :offset offset
