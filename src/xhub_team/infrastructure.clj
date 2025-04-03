@@ -73,20 +73,20 @@
         (recur (str acc (first remaining) " and ") (rest remaining))))))
 
 (defn get-manga-list [filters]
-  (let [sql (str "with manga_list as (SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, mp.oid
+  (let [sql (str "with manga_list as (SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, mp.id
                  FROM manga manga
                  left join manga_page mp ON mp.manga_id = manga.id
                  left join manga_tag mg on mg.manga_id = manga.id "
                  (when (or (:name filters) (:tags filters)) (build-filters filters))
                  " limit ? offset ? )"
-                 "select * from manga_list "
+                 " select * from manga_list "
                  (generate-order-by (:order_by filters)))
         params (remove nil? (vec (concat (:tags filters) [(:name filters) (:limit filters) (:offset filters) ] )) )]
     (jdbc/execute! datasource (into [sql] params))))
 
 (defn get-manga-by-id [^java.util.UUID uuid]
   (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["select m.id, m.name, m.description, m.created_at, array_agg(mp.oid) from manga m
+              stmt (jdbc/prepare conn ["select m.id, m.name, m.description, m.created_at, array_agg(mp.id) from manga m
                                        left join manga_page mp on m.id = mp.manga_id
                                         where m.id = ?
                                         group by m.id, m.name, m.description, m.created_at" uuid])]
