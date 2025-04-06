@@ -65,7 +65,7 @@
   (fn [request]
     (let [token (get (:headers request) "token" )]
       (do
-        (when token (domain/update-session-time token))
+        (when token (infra/update-session-time token))
         (handler request)))))
 
 
@@ -123,8 +123,7 @@
                          (let [code (-> req :parameters :body :code)
                                token (get (:headers req) "token" )]
                            (domain/confirm-reg code token)
-                           {:status 200})
-                         )}}]
+                           {:status 200}))}}]
      ["/auth"
       {:post {:responses {200 {:body {:email string? :is_author boolean? :is_prime boolean?}}}
               :parameters {:body (s/nilable (s/keys :opt-un [::email ::password])) :headers (s/keys :opt-un [::token]) }
