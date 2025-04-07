@@ -75,7 +75,8 @@
 (s/def ::preview_id (s/nilable string?))
 (s/def ::created_at string?)
 (s/def ::page_list (s/coll-of string?))
-(s/def ::manga (s/keys :req-un [::id ::name ::description ::preview_id]))
+(s/def ::like_count int?)
+(s/def ::manga (s/keys :req-un [::id ::name ::description ::preview_id ::like_count]))
 
 ;; Спецификация для массива манги
 (s/def ::manga_list (s/coll-of ::manga))
