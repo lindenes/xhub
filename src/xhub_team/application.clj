@@ -21,7 +21,7 @@
   (fn [request]
     (log/info "-----------------------------------------")
     (log/info (:uri request) (:request-method request) (:headers request))
-    (log/debug (:uri request) (:request-method request) (:headers request) (slurp (:body request)) )
+    (log/debug (:uri request) (:request-method request) (:headers request) (slurp (:body request)))
     (let [response (handler request)]
       (-> response
           (assoc-in [:headers "Access-Control-Allow-Origin"] "*")
@@ -35,12 +35,12 @@
     (log/error data)
     (let [error-map (cond
                       (contains? data :spec)
-                      {:status 400 :body app-errors/request-format-error }
+                      {:status 400 :body app-errors/request-format-error}
 
                       :else
                       (condp = (:error_code (first error-data))
                         2
-                        {:status 400 :body error-data }
+                        {:status 400 :body error-data}
 
                         3
                         {:status 400 :body error-data}
@@ -51,10 +51,10 @@
                         5
                         {:status 404 :body error-data}
 
-                        {:status 500 :body "Unexpected server error"}) )]
-         (-> error-map
-             (assoc :body (json/write-str (:body error-map)))
-             (assoc-in [:headers "Content-Type"] "application/json")))))
+                        {:status 500 :body "Unexpected server error"}))]
+      (-> error-map
+          (assoc :body (json/write-str (:body error-map)))
+          (assoc-in [:headers "Content-Type"] "application/json")))))
 
 (defn error-wrapper [handler]
   (fn [request]
@@ -63,11 +63,10 @@
 
 (defn token-wrapper [handler]
   (fn [request]
-    (let [token (get (:headers request) "token" )]
+    (let [token (get (:headers request) "token")]
       (do
         (when token (infra/update-session-time token))
         (handler request)))))
-
 
 ;; Спецификация для одного элемента манги
 (s/def ::id string?)
@@ -82,7 +81,6 @@
 (s/def ::manga_list (s/coll-of ::manga))
 
 (s/def ::full_manga (s/keys :req-un [::id ::name ::description ::created_at ::page_list]))
-
 
 (s/def ::limit nat-int?)
 (s/def ::offset nat-int?)
@@ -109,36 +107,34 @@
              :handler (openapi/create-openapi-handler)}}]
 
      ["/user"
-      {
-       :tags [:user]
+      {:tags [:user]
        :post {:responses {200 {:body nil?}}
               :parameters {:body {:email string? :password string?}}
               :handler (fn [{{{:keys [email password]} :body} :parameters}]
                          (let [token (domain/registration email password)]
-                            {:status 200 :headers {"Token" token} }))}}]
+                           {:status 200 :headers {"Token" token}}))}}]
      ["/accept"
       {:post {:responses {200 {:body nil}}
-              :parameters {:body {:code int?} :headers {:token string?} }
+              :parameters {:body {:code int?} :headers {:token string?}}
               :handler (fn [req]
                          (let [code (-> req :parameters :body :code)
-                               token (get (:headers req) "token" )]
+                               token (get (:headers req) "token")]
                            (domain/confirm-reg code token)
                            {:status 200}))}}]
      ["/auth"
       {:post {:responses {200 {:body {:email string? :is_author boolean? :is_prime boolean?}}}
-              :parameters {:body (s/nilable (s/keys :opt-un [::email ::password])) :headers (s/keys :opt-un [::token]) }
+              :parameters {:body (s/nilable (s/keys :opt-un [::email ::password])) :headers (s/keys :opt-un [::token])}
               :handler (fn [req]
                          (let [body (-> req :parameters :body)
-                               header_token  (get (:headers req) "token" )
-                               user_data (domain/authorization (:email body) (:password body) header_token )
+                               header_token  (get (:headers req) "token")
+                               user_data (domain/authorization (:email body) (:password body) header_token)
                                user (:user user_data)
                                token (if (nil? (:token user_data))
                                        header_token
                                        (:token user_data))]
                            {:status 200
                             :body {:email (:user/email user) :is_author (:user/is_author user) :is_prime (:user/is_prime user)}
-                            :headers {"Token" token}}
-                           ))}}]
+                            :headers {"Token" token}}))}}]
 
      ["/search"
       {:post {:responses {200 {:body ::manga_list}}
@@ -153,13 +149,14 @@
                                        {:id (.toString (:manga/id manga))
                                         :name (:manga/name manga)
                                         :description (:manga/description manga)
-                                        :preview_id (when (:manga_page/id manga) (.toString (:manga_page/id manga))) })
+                                        :preview_id (when (:manga_page/id manga) (.toString (:manga_page/id manga)))
+                                        :like_count (:like_count manga)})
                                      (infra/get-manga-list
-                                       {:limit limit
-                                        :offset offset
-                                        :name (when name (str "%" name "%"))
-                                        :order-by order-by
-                                        :tags tags}))})}}]
+                                      {:limit limit
+                                       :offset offset
+                                       :name (when name (str "%" name "%"))
+                                       :order-by order-by
+                                       :tags tags}))})}}]
      ["/manga"
       {:tags [:manga]
        :get {:responses {200 {:body ::full_manga}}

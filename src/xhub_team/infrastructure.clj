@@ -1,8 +1,8 @@
 (ns xhub-team.infrastructure
   (:require [xhub-team.configuration :as conf]
-             [next.jdbc :as jdbc]
-             [taoensso.carmine :as car :refer [wcar]]
-             [next.jdbc.sql :as sql])
+            [next.jdbc :as jdbc]
+            [taoensso.carmine :as car :refer [wcar]]
+            [next.jdbc.sql :as sql])
   (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]
             [jakarta.mail Session Message Transport Message$RecipientType]
             [jakarta.mail.internet InternetAddress MimeMessage]))
@@ -74,15 +74,16 @@
         (recur (str acc (first remaining) " and ") (rest remaining))))))
 
 (defn get-manga-list [filters]
-  (let [sql (str "with manga_list as (SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, mp.id
+  (let [sql (str "with manga_list as (SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, mp.id, (select count(*) from manga_like ml where ml.manga_id = manga.id) as like_count
                  FROM manga manga
                  left join manga_page mp ON mp.manga_id = manga.id
                  left join manga_tag mg on mg.manga_id = manga.id "
                  (when (or (:name filters) (:tags filters)) (build-filters filters))
-                 " limit ? offset ? )"
+                 ")"
                  " select * from manga_list "
-                 (generate-order-by (:order_by filters)))
-        params (remove nil? (vec (concat (:tags filters) [(:name filters) (:limit filters) (:offset filters) ] )) )]
+                 (generate-order-by (:order_by filters))
+                 "limit ? offset ?")
+        params (remove nil? (vec (concat (:tags filters) [(:name filters) (:limit filters) (:offset filters)])))]
     (jdbc/execute! datasource (into [sql] params))))
 
 (defn get-manga-by-id [^java.util.UUID uuid]
@@ -96,8 +97,7 @@
 (defn create-manga [^java.util.UUID uuid name description]
   (with-open [conn (jdbc/get-connection datasource)
               stmt (jdbc/prepare conn ["insert into manga (id,name,description) values (?, ?, ?) returning id" uuid name description])]
-    (jdbc/execute! stmt))
-  )
+    (jdbc/execute! stmt)))
 
 (defn add-user [id email password]
   (with-open [conn (jdbc/get-connection datasource)
@@ -106,8 +106,8 @@
 
 (defn find-user [email password]
   (first (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.email = ? and u.password = ?" email password])]
-    (jdbc/execute! stmt))))
+                     stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.email = ? and u.password = ?" email password])]
+           (jdbc/execute! stmt))))
 
 (defn busy-email? [email]
   (with-open [conn (jdbc/get-connection datasource)
@@ -122,9 +122,8 @@
 
 (defn add-session
   ([id email password token is_author is_prime is_admin code]
-  (wcar*
-    (car/set token {:id id :email email :password password :token token :is_author is_author :is_prime is_prime :is_admin is_admin :code code} :ex 1800)
-    ))
+   (wcar*
+    (car/set token {:id id :email email :password password :token token :is_author is_author :is_prime is_prime :is_admin is_admin :code code} :ex 1800)))
   ([id email password token is_author is_prime is_admin] (add-session id email password token is_author is_prime is_admin nil))
   ([id email password token] (add-session id email password token  false false false nil)))
 
