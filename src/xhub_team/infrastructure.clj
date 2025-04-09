@@ -86,11 +86,11 @@
         params (remove nil? (vec (concat (:tags filters) [(:name filters) (:limit filters) (:offset filters)])))]
     (jdbc/execute! datasource (into [sql] params))))
 
-(defn get-manga-by-id [^java.util.UUID uuid]
+(defn get-manga-by-id [uuid]
   (with-open [conn (jdbc/get-connection datasource)
               stmt (jdbc/prepare conn ["select m.id, m.name, m.description, m.created_at, array_agg(mp.id) from manga m
                                        left join manga_page mp on m.id = mp.manga_id
-                                        where m.id = ?
+                                        where m.id = cast(? as uuid)
                                         group by m.id, m.name, m.description, m.created_at" uuid])]
     (jdbc/execute! stmt)))
 
@@ -131,3 +131,13 @@
   (let [token->user (wcar* (car/get token))]
     (when token->user
       (wcar* (car/set token token->user :ex 1800)))))
+
+(defn add-like [user-id manga-id]
+  (with-open [conn (jdbc/get-connection datasource)
+              stmt (jdbc/prepare conn ["insert into manga_like (user_id, manga_id) values (?, cast(? as uuid))" user-id manga-id])]
+    (jdbc/execute! stmt)))
+
+(defn get-user [id]
+  (with-open [conn (jdbc/get-connection datasource)
+              stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.id = cast(? as uuid)" id])]
+    (jdbc/execute! stmt)))

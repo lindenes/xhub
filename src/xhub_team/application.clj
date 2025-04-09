@@ -51,6 +51,15 @@
                         5
                         {:status 404 :body error-data}
 
+                        6
+                        {:status 404 :body error-data}
+
+                        7
+                        {:status 401 :body error-data}
+
+                        8
+                        {:status 400 :body error-data}
+
                         {:status 500 :body "Unexpected server error"}))]
       (-> error-map
           (assoc :body (json/write-str (:body error-map)))
@@ -106,7 +115,14 @@
                               :description "openapi3-docs with reitit-http"
                               :version "0.0.1"}}
              :handler (openapi/create-openapi-handler)}}]
-
+     ["/like"
+      {:post {:responses {200 {:body nil?}}
+              :parameters {:body {:manga_id string?} :headers {:token string?}}
+              :handler (fn [req]
+                         (let [manga-id (-> req :parameters :body :manga_id)
+                               token (get (:headers req) "token")]
+                           (domain/like-manga token manga-id)
+                           {:status 200}))}}]
      ["/user"
       {:tags [:user]
        :post {:responses {200 {:body nil?}}
@@ -164,7 +180,7 @@
              :parameters {:query {:id string?}}
              :handler (fn [{{{:keys [id]} :query} :parameters}]
                         {:status 200
-                         :body (let [manga (first (infra/get-manga-by-id (java.util.UUID/fromString id)))]
+                         :body (let [manga (first (infra/get-manga-by-id id))]
                                  {:id (.toString (:manga/id manga))
                                   :name (:manga/name manga)
                                   :description (:manga/description manga)
