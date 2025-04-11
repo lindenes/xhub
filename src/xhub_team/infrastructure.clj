@@ -141,3 +141,15 @@
   (with-open [conn (jdbc/get-connection datasource)
               stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.id = cast(? as uuid)" id])]
     (jdbc/execute! stmt)))
+
+(defn get-manga-comments [manga-id]
+  (with-open [conn (jdbc/get-connection datasource)
+              stmt (jdbc/prepare conn ["select c.id, c.manga_id, c.\"content\", c.created_at, u.login, u.id from \"comment\" c
+                                       inner join \"user\" u on u.id = c.user_id
+                                       where c.manga_id = cast(? as uuid)" manga-id])]
+    (jdbc/execute! stmt)))
+
+(defn add-manga-comment [manga-id user-id text]
+  (with-open [conn (jdbc/get-connection datasource)
+              stmt (jdbc/prepare conn ["insert into \"comment\" (id, manga_id, user_id, content) values (?, ?, ?, ?)" java.util.UUID/randomUUID (java.util.UUID/fromString manga-id) user-id text])]
+    (jdbc/execute! stmt)))

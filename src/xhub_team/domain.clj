@@ -61,5 +61,14 @@
     (when
      (nil? (infra/get-manga-by-id manga_id))
       (throw (ex-info "not found manga by id" err/not_found_manga_by_id_error)))
-    (println (:id user) manga_id)
     (infra/add-like (:id user) manga_id)))
+
+(defn add-manga-comment [manga-id token text]
+  (let [user (infra/wcar* (car/get token))]
+    (when
+     (nil? user)
+      (throw (ex-info "not found user by token" err/user-not-auth)))
+    (when
+     (nil? (infra/get-manga-by-id manga-id))
+      (throw (ex-info "not found manga by id" err/not_found_manga_by_id_error)))
+    (infra/add-manga-comment manga-id (:id user) text)))

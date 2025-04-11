@@ -102,6 +102,11 @@
 (s/def ::password (s/nilable string?))
 (s/def ::token (s/nilable string?))
 
+(s/def ::content string?)
+(s/def ::user_id string?)
+(s/def ::user_login (s/nilable string?))
+(s/def ::comment (s/coll-of (s/keys :req-un [::id ::content ::user_id ::user_login])))
+
 (def app
   (ring/ring-handler
    (ring/router
@@ -123,6 +128,22 @@
                                token (get (:headers req) "token")]
                            (domain/like-manga token manga-id)
                            {:status 200}))}}]
+     ["/comment"
+      {:tags [:comment]
+       :get {:responses {200 {:body ::comment}}
+             :parameters {:query {:manga_id string?}}
+             :handler (fn [{{{:keys [manga_id]} :query} :parameters}]
+                        (let [response (map (fn [comm] {:id (.toString (:comment/id comm)) :content (:comment/content comm) :user_id (.toString (:user/id comm)) :user_login (:user/login comm)})
+                                            (infra/get-manga-comments manga_id))]
+                          {:status 200 :body response}))}
+       :post {:responses {200 {:body nil?}}
+              :parameters {:body {:manga_id string? :content string?} :headers {:token string?}}
+              :handler (fn [req]
+                         (let [token (get (:headers req) "token")
+                               [manga-id content] (-> req :parameters :body)]
+                           (domain/add-manga-comment manga-id token content)
+                           {:status 200}))}}]
+
      ["/user"
       {:tags [:user]
        :post {:responses {200 {:body nil?}}
