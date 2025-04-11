@@ -53,22 +53,22 @@
         (throw (ex-info "not found user in session store" err/not_found_user_error))
         {:user {:user/email (:email user) :user/is_prime (:is_prime user) :user/is_author (:is_author user)} :token token}))))
 
+(defn redis->user [token]
+  (let [user (infra/wcar* (car/get token))]
+    (when (nil? user) (throw (ex-info "not found user by token" err/user-not-auth)))
+    user))
+
+(defn db->manga [manga-id]
+  (let [manga (infra/get-manga-by-id manga-id)]
+    (when (nil? manga) (throw (ex-info "not found manga by id" err/not_found_manga_by_id_error)))
+    manga))
+
 (defn like-manga [token manga_id]
-  (let [user  (infra/wcar* (car/get token))]
-    (when
-     (nil? user)
-      (throw (ex-info "not found user by token" err/user-not-auth)))
-    (when
-     (nil? (infra/get-manga-by-id manga_id))
-      (throw (ex-info "not found manga by id" err/not_found_manga_by_id_error)))
+  (let [user (redis->user token)
+        _ (db->manga manga_id)]
     (infra/add-like (:id user) manga_id)))
 
 (defn add-manga-comment [manga-id token text]
-  (let [user (infra/wcar* (car/get token))]
-    (when
-     (nil? user)
-      (throw (ex-info "not found user by token" err/user-not-auth)))
-    (when
-     (nil? (infra/get-manga-by-id manga-id))
-      (throw (ex-info "not found manga by id" err/not_found_manga_by_id_error)))
+  (let [user (redis->user token)
+        _ (db->manga manga-id)]
     (infra/add-manga-comment manga-id (:id user) text)))

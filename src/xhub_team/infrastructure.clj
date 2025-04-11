@@ -35,6 +35,25 @@
    "Подтверждение"
    (str "Код подтверждения " code)))
 
+(defonce my-conn-pool (car/connection-pool {}))
+(def     my-conn-spec conf/config->redis)
+(def     my-wcar-opts {:pool my-conn-pool, :spec my-conn-spec})
+
+(defmacro wcar* [& body] `(car/wcar my-wcar-opts ~@body))
+
+(defn add-session
+  ([id email password token is_author is_prime is_admin code]
+   (wcar*
+    (car/set token {:id id :email email :password password :token token :is_author is_author :is_prime is_prime :is_admin is_admin :code code} :ex 1800)))
+  ([id email password token is_author is_prime is_admin] (add-session id email password token is_author is_prime is_admin nil))
+  ([id email password token] (add-session id email password token  false false false nil)))
+
+(defn update-session-time [token]
+  (let [token->user (wcar* (car/get token))]
+    (when token->user
+      (wcar* (car/set token token->user :ex 1800)))))
+
+
 (def datasource
   (let [config (HikariConfig.)
         database-config (:database conf/config)]
@@ -113,24 +132,6 @@
   (with-open [conn (jdbc/get-connection datasource)
               stmt (jdbc/prepare conn ["select 1 from \"user\" where email = ? " email])]
     (empty? (jdbc/execute! stmt))))
-
-(defonce my-conn-pool (car/connection-pool {}))
-(def     my-conn-spec conf/config->redis)
-(def     my-wcar-opts {:pool my-conn-pool, :spec my-conn-spec})
-
-(defmacro wcar* [& body] `(car/wcar my-wcar-opts ~@body))
-
-(defn add-session
-  ([id email password token is_author is_prime is_admin code]
-   (wcar*
-    (car/set token {:id id :email email :password password :token token :is_author is_author :is_prime is_prime :is_admin is_admin :code code} :ex 1800)))
-  ([id email password token is_author is_prime is_admin] (add-session id email password token is_author is_prime is_admin nil))
-  ([id email password token] (add-session id email password token  false false false nil)))
-
-(defn update-session-time [token]
-  (let [token->user (wcar* (car/get token))]
-    (when token->user
-      (wcar* (car/set token token->user :ex 1800)))))
 
 (defn add-like [user-id manga-id]
   (with-open [conn (jdbc/get-connection datasource)
