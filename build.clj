@@ -14,9 +14,8 @@
         combined (t/combine-aliases basis [:test])
         cmds     (b/java-command
                   {:basis basis
-                   :java-opts (:jvm-opts combined)
-                   :main      'clojure.main
-                   :main-args ["-m" "cognitect.test-runner"]})
+                   :main 'clojure.main
+		   :main-args ["-e" "(require 'midje.repl) (midje.repl/autotest) (System/exit 0)"]})
         {:keys [exit]} (b/process cmds)]
     (when-not (zero? exit) (throw (ex-info "Tests failed" {}))))
   opts)
