@@ -152,5 +152,5 @@
 
 (defn add-manga-comment [manga-id user-id text]
   (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["insert into \"comment\" (id, manga_id, user_id, content) values (?, ?, ?, ?)" java.util.UUID/randomUUID (java.util.UUID/fromString manga-id) user-id text])]
+              stmt (jdbc/prepare conn ["insert into \"comment\" (id, manga_id, user_id, content) values (?, ?, ?, ?)" (java.util.UUID/randomUUID) (java.util.UUID/fromString manga-id) user-id text])]
     (jdbc/execute! stmt)))
