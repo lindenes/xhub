@@ -211,8 +211,7 @@
        :post {:responses {200 {:body {:id string?}}}
               :parameters {:body {:name string? :description (s/nilable string?)}}
               :handler (fn [{{{:keys [name description]} :body} :parameters}]
-                         (let [id (java.util.UUID/randomUUID)
-                               db-id (-> (infra/create-manga id name description)
+                         (let [db-id (-> (infra/create-manga name description)
                                          first
                                          :manga/id
                                          .toString)]

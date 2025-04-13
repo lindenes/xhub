@@ -68,6 +68,31 @@
 
     (HikariDataSource. config)))
 
+(defn write-insert-columns [columns]
+  (loop [remaining-columns columns
+         acc "("]
+    (if (= (count remaining-columns) 1)
+      (str acc (first remaining-columns) ") " )
+      (recur (rest remaining-columns) (str acc (first remaining-columns) ",")))))
+
+(defn write-values [values-length]
+  (loop [acc "values ("
+         iter values-length]
+    (if (= 1 iter)
+      (str acc "?)")
+      (recur (str acc "?,") (- iter 1)))))
+
+(defn build-insert-sql-request [parameters]
+  (let [init-str (str "insert into " (:table-name parameters) " ")
+        columns (write-insert-columns (:columns parameters))
+        values (write-values (count (:values parameters)))]
+    (str init-str columns values)))
+
+(defn insert-sql-request [parameters]
+  (with-open [conn (jdbc/get-connection datasource)
+              stmt (jdbc/prepare conn (into [(build-insert-sql-request parameters)] (:values parameters)))]
+    (jdbc/execute! stmt)))
+
 (defn generate-tag-filter [tags]
   (loop [acc "mg.tag_id in ("
          remaining tags]
@@ -113,15 +138,15 @@
                                         group by m.id, m.name, m.description, m.created_at" uuid])]
     (jdbc/execute! stmt)))
 
-(defn create-manga [^java.util.UUID uuid name description]
-  (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["insert into manga (id,name,description) values (?, ?, ?) returning id" uuid name description])]
-    (jdbc/execute! stmt)))
+(defn create-manga [name description]
+  (insert-sql-request {:table-name "manga"
+                       :columns ["id", "name" "description"]
+                       :values [(java.util.UUID/randomUUID) name description]}))
 
 (defn add-user [id email password]
-  (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["insert into \"user\" (id, email, password) values (cast(? as uuid), ?, ?)" id email password])]
-    (jdbc/execute! stmt)))
+  (insert-sql-request {:table-name  "\"user\""
+                       :columns ["id" "email" "password"]
+                       :values [id email password]}))
 
 (defn find-user [email password]
   (first (with-open [conn (jdbc/get-connection datasource)
@@ -134,9 +159,9 @@
     (empty? (jdbc/execute! stmt))))
 
 (defn add-like [user-id manga-id]
-  (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["insert into manga_like (user_id, manga_id) values (?, cast(? as uuid))" user-id manga-id])]
-    (jdbc/execute! stmt)))
+  (insert-sql-request {:table-name "manga_like"
+                       :columns ["user_id" "manga_id"]
+                       :values [user-id (java.util.UUID/fromString manga-id)]}))
 
 (defn get-user [id]
   (with-open [conn (jdbc/get-connection datasource)
@@ -151,6 +176,6 @@
     (jdbc/execute! stmt)))
 
 (defn add-manga-comment [manga-id user-id text]
-  (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["insert into \"comment\" (id, manga_id, user_id, content) values (?, ?, ?, ?)" (java.util.UUID/randomUUID) (java.util.UUID/fromString manga-id) user-id text])]
-    (jdbc/execute! stmt)))
+  (insert-sql-request {:table-name "\"comment\""
+                       :columns ["id", "manga_id", "user_id" "content"]
+                       :values [(java.util.UUID/randomUUID) (java.util.UUID/fromString manga-id) user-id text]}))
