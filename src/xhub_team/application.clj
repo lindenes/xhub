@@ -206,7 +206,7 @@
                                   :name (:manga/name manga)
                                   :description (:manga/description manga)
                                   :created_at (.toString (:manga/created_at manga))
-                                  :page_list (vec (filter some? (.getArray (:array_agg manga))))})})}
+                                  :page_list (map #(.toString %) (vec (filter some? (.getArray (:array_agg manga))))) })})}
 
        :post {:responses {200 {:body {:id string?}}}
               :parameters {:body {:name string? :description (s/nilable string?)}}
