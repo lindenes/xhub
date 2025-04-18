@@ -85,7 +85,7 @@
 (s/def ::created_at string?)
 (s/def ::page_list (s/coll-of string?))
 (s/def ::like_count int?)
-(s/def ::manga_connection (s/keys :req-un [::id ::name] :opt-un [::preview_id] ))
+(s/def ::manga_connection (s/keys :req-un [::id ::name] :opt-un [::preview_id]))
 (s/def ::connections (s/coll-of ::manga_connection))
 (s/def ::manga (s/keys :req-un [::id ::name ::description ::preview_id ::like_count]))
 
@@ -205,17 +205,8 @@
                         {:status 200
                          :body (let [uuid (try
                                             (java.util.UUID/fromString id)
-                                            (catch Exception _ (ex-info "parse to uuid error" app-errors/request-format-error)))
-                                     manga (first (infra/get-manga-by-id uuid))]
-                                 (println manga)
-                                 (println (:connections manga))
-                                 {:id (.toString (:manga/id manga))
-                                  :name (:manga/name manga)
-                                  :description (:manga/description manga)
-                                  :created_at (.toString (:manga/created_at manga))
-                                  :page_list (map #(.toString %) (vec (filter some? (.getArray (:array_agg manga)))))
-                                  :connections (or (:connections manga) []) })})}
-
+                                            (catch Exception _ (ex-info "parse to uuid error" app-errors/request-format-error)))]
+                                 (first (infra/get-manga-by-id uuid)))})}
        :post {:responses {200 {:body {:id string?}}}
               :parameters {:body {:name string? :description (s/nilable string?)}}
               :handler (fn [{{{:keys [name description]} :body} :parameters}]
