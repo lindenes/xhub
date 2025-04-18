@@ -82,11 +82,19 @@
       (str acc "?)")
       (recur (str acc "?,") (- iter 1)))))
 
+(defn write-returning [columns]
+  (loop [acc "returning "
+         remaining-columns columns]
+    (if (= 1 (count  remaining-columns))
+           (str acc (first remaining-columns))
+           (recur (rest remaining-columns) (str acc (first remaining-columns) ",")))))
+
 (defn build-insert-sql-request [parameters]
   (let [init-str (str "insert into " (:table-name parameters) " ")
         columns (write-insert-columns (:columns parameters))
-        values (write-values (count (:values parameters)))]
-    (str init-str columns values)))
+        values (write-values (count (:values parameters)))
+        returning (write-returning (:return parameters))]
+    (str init-str columns values returning)))
 
 (defn insert-sql-request [parameters]
   (with-open [conn (jdbc/get-connection datasource)
@@ -141,7 +149,8 @@
 (defn create-manga [name description]
   (insert-sql-request {:table-name "manga"
                        :columns ["id", "name" "description"]
-                       :values [(java.util.UUID/randomUUID) name description]}))
+                       :values [(java.util.UUID/randomUUID) name description]
+                       :return ["id"]}))
 
 (defn add-user [id email password]
   (insert-sql-request {:table-name  "\"user\""
