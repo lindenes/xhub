@@ -83,11 +83,14 @@
       (recur (str acc "?,") (- iter 1)))))
 
 (defn write-returning [columns]
-  (loop [acc "returning "
-         remaining-columns columns]
-    (if (= 1 (count  remaining-columns))
-           (str acc (first remaining-columns))
-           (recur (rest remaining-columns) (str acc (first remaining-columns) ",")))))
+  (when (not-empty columns)
+    (loop [acc "returning "
+           remaining-columns columns]
+      (if (= 1 (count  remaining-columns))
+        (str acc (first remaining-columns))
+        (recur (str acc (first remaining-columns) ",") (rest remaining-columns))))))
+
+(write-returning [])
 
 (defn build-insert-sql-request [parameters]
   (let [init-str (str "insert into " (:table-name parameters) " ")
