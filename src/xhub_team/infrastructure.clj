@@ -1,9 +1,11 @@
 (ns xhub-team.infrastructure
   (:require [xhub-team.configuration :as conf]
             [next.jdbc :as jdbc]
+            [clojure.data.json :as json]
             [taoensso.carmine :as car :refer [wcar]]
             [next.jdbc.sql :as sql])
   (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]
+            [org.postgresql.util PGobject]
             [jakarta.mail Session Message Transport Message$RecipientType]
             [jakarta.mail.internet InternetAddress MimeMessage]))
 
@@ -68,6 +70,16 @@
 
     (HikariDataSource. config)))
 
+(defn <-pgobject
+  "Transform PGobject containing `json` or `jsonb` value to Clojure data."
+  [v]
+  (when (not (nil? v))
+    (let [type  (.getType v)
+        value (.getValue v)]
+    (if (#{"jsonb" "json"} type)
+      (some-> value (json/read-str :key-fn keyword) (with-meta {:pgtype type}))
+      value))))
+
 (defn write-insert-columns [columns]
   (loop [remaining-columns columns
          acc "("]
@@ -89,8 +101,6 @@
       (if (= 1 (count  remaining-columns))
         (str acc (first remaining-columns))
         (recur (str acc (first remaining-columns) ",") (rest remaining-columns))))))
-
-(write-returning [])
 
 (defn build-insert-sql-request [parameters]
   (let [init-str (str "insert into " (:table-name parameters) " ")
@@ -143,11 +153,23 @@
 
 (defn get-manga-by-id [uuid]
   (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["select m.id, m.name, m.description, m.created_at, array_agg(mp.id) from manga m
-                                       left join manga_page mp on m.id = mp.manga_id
+              stmt (jdbc/prepare conn ["select m.id, m.name, m.description, m.created_at, array_agg(mp.id),
+                                         (
+                                            SELECT json_agg(json_build_object('id', mc.manga_id, 'name', m2.name, 'preview_id', (select id from manga_page where manga_id = mc.manga_id limit 1)))
+                                            FROM manga_connection mc
+                                            JOIN manga m2 ON m2.id = mc.manga_id
+                                            WHERE mc.connection_id = (
+                                              SELECT connection_id
+                                              FROM manga_connection
+                                              WHERE manga_id = m.id
+                                            )
+                                            AND mc.manga_id != m.id
+                                        ) AS connections
+                                        from manga m
+                                        left join manga_page mp on m.id = mp.manga_id
                                         where m.id = cast(? as uuid)
-                                        group by m.id, m.name, m.description, m.created_at" uuid])]
-    (jdbc/execute! stmt)))
+                                        group by m.id" uuid])]
+    (map #(assoc %1 :connections (<-pgobject (:connections %1))) (jdbc/execute! stmt))))
 
 (defn create-manga [name description]
   (insert-sql-request {:table-name "manga"

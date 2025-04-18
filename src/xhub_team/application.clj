@@ -32,7 +32,7 @@
 (defn error->response [error]
   (let [data (ex-data error)
         error-data (:error-data data)]
-    (log/error data)
+    (log/error error)
     (let [error-map (cond
                       (contains? data :spec)
                       {:status 400 :body app-errors/request-format-error}
@@ -85,12 +85,14 @@
 (s/def ::created_at string?)
 (s/def ::page_list (s/coll-of string?))
 (s/def ::like_count int?)
+(s/def ::manga_connection (s/keys :req-un [::id ::name] :opt-un [::preview_id] ))
+(s/def ::connections (s/coll-of ::manga_connection))
 (s/def ::manga (s/keys :req-un [::id ::name ::description ::preview_id ::like_count]))
 
 ;; Спецификация для массива манги
 (s/def ::manga_list (s/coll-of ::manga))
 
-(s/def ::full_manga (s/keys :req-un [::id ::name ::description ::created_at ::page_list]))
+(s/def ::full_manga (s/keys :req-un [::id ::name ::description ::created_at ::page_list ::connections]))
 
 (s/def ::limit nat-int?)
 (s/def ::offset nat-int?)
@@ -201,12 +203,18 @@
              :parameters {:query {:id string?}}
              :handler (fn [{{{:keys [id]} :query} :parameters}]
                         {:status 200
-                         :body (let [manga (first (infra/get-manga-by-id id))]
+                         :body (let [uuid (try
+                                            (java.util.UUID/fromString id)
+                                            (catch Exception _ (ex-info "parse to uuid error" app-errors/request-format-error)))
+                                     manga (first (infra/get-manga-by-id uuid))]
+                                 (println manga)
+                                 (println (:connections manga))
                                  {:id (.toString (:manga/id manga))
                                   :name (:manga/name manga)
                                   :description (:manga/description manga)
                                   :created_at (.toString (:manga/created_at manga))
-                                  :page_list (map #(.toString %) (vec (filter some? (.getArray (:array_agg manga))))) })})}
+                                  :page_list (map #(.toString %) (vec (filter some? (.getArray (:array_agg manga)))))
+                                  :connections (or (:connections manga) []) })})}
 
        :post {:responses {200 {:body {:id string?}}}
               :parameters {:body {:name string? :description (s/nilable string?)}}
