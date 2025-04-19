@@ -190,8 +190,16 @@
                        :values [id email password]}))
 
 (defn find-user [email password]
-  (first (with-open [conn (jdbc/get-connection datasource)
+  (with-open [conn (jdbc/get-connection datasource)
                      stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.email = ? and u.password = ?" email password])]
+          (map
+           (fn [row]
+             {:id (:user/id row)
+              :email (:user/email row)
+              :is_author (:user/is_author row)
+              :password (:user/password row)
+              :is_prime (:user/is_prime row)
+              :created_at (:user/created_at row)})
            (jdbc/execute! stmt))))
 
 (defn busy-email? [email]
@@ -214,7 +222,15 @@
               stmt (jdbc/prepare conn ["select c.id, c.manga_id, c.\"content\", c.created_at, u.login, u.id from \"comment\" c
                                        inner join \"user\" u on u.id = c.user_id
                                        where c.manga_id = cast(? as uuid)" manga-id])]
-    (jdbc/execute! stmt)))
+    (map
+     (fn [row]
+       {:id (:comment/id row)
+        :manga_id (:comment/manga_id row)
+        :content (:comment/content row)
+        :created_at (:comment/created_at row)
+        :user_login (:user/login row)
+        :user_id (:user/id row)})
+     (jdbc/execute! stmt))))
 
 (defn add-manga-comment [manga-id user-id text]
   (insert-sql-request {:table-name "\"comment\""

@@ -37,9 +37,9 @@
          (do
            (infra/add-manga-comment "3396a57d-38c6-4bc3-ac50-6f8555c915dc" #uuid "a705baad-b3da-437d-8032-92b14afe87f2", "Тестовый коментарий")
            (let [comments (infra/get-manga-comments "3396a57d-38c6-4bc3-ac50-6f8555c915dc")
-                 find-comment (some #(= (:comment/content %) "Тестовый коментарий") comments)]
+                 find-comment (some #(= (:content %) "Тестовый коментарий") comments)]
              (fact "Проверка на создание комментария для 3396a57d-38c6-4bc3-ac50-6f8555c915dc"
                    find-comment => true)))
          (let [comment (infra/get-manga-comments "3396a57d-38c6-4bc3-ac50-6f8555c915dc")]
            (fact "Проверка структуры ответа на получение коментария"
-                (every? #(contains? (first comment) %) [:comment/id :comment/content :user/id :user/login] ) => true))))
+                (every? #(contains? (first comment) %) [:id :content :user_id :user_login] ) => true))))

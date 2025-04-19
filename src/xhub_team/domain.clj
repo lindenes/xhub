@@ -41,17 +41,17 @@
 (defn authorization [email password token]
   (if (nil? token)
     (let [hashed_password (sha-256 password)
-          user (infra/find-user email hashed_password)
+          user (list (infra/find-user email hashed_password))
           token (.toString (java.util.UUID/randomUUID))]
       (if (nil? user)
         (throw (ex-info "not found user in database" err/not_found_user_error))
         (do
-          (infra/add-session (:user/id user) (:user/email user) (:user/password user) token (:user/is_author user) (:user/is_prime user) (:user/is_admin user))
+          (infra/add-session (:user user) (:email user) (:password user) token (:is_author user) (:is_prime user) (:is_admin user))
           {:user user :token token})))
     (let [user  (infra/wcar* (car/get token))]
       (if (nil? user)
         (throw (ex-info "not found user in session store" err/not_found_user_error))
-        {:user {:user/email (:email user) :user/is_prime (:is_prime user) :user/is_author (:is_author user)} :token token}))))
+        {:user user :token token}))))
 
 (defn redis->user [token]
   (let [user (infra/wcar* (car/get token))]

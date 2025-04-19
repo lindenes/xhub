@@ -135,9 +135,7 @@
        :get {:responses {200 {:body ::comment}}
              :parameters {:query {:manga_id string?}}
              :handler (fn [{{{:keys [manga_id]} :query} :parameters}]
-                        (let [response (map (fn [comm] {:id (.toString (:comment/id comm)) :content (:comment/content comm) :user_id (.toString (:user/id comm)) :user_login (:user/login comm)})
-                                            (infra/get-manga-comments manga_id))]
-                          {:status 200 :body response}))}
+                        {:status 200 :body (infra/get-manga-comments manga_id)})}
        :post {:responses {200 {:body nil?}}
               :parameters {:body {:manga_id string? :content string?} :headers {:token string?}}
               :handler (fn [req]
@@ -173,7 +171,7 @@
                                        header_token
                                        (:token user_data))]
                            {:status 200
-                            :body {:email (:user/email user) :is_author (:user/is_author user) :is_prime (:user/is_prime user)}
+                            :body user
                             :headers {"Token" token}}))}}]
 
      ["/search"
