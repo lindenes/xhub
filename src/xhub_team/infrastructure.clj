@@ -112,6 +112,11 @@
               stmt (jdbc/prepare conn (into [(build-insert-sql-request parameters)] (:values parameters)))]
     (jdbc/execute! stmt)))
 
+(defn insert-transcation-sql [parameters-list]
+  (jdbc/with-transaction [tr datasource]
+    (doseq [parameters parameters-list]
+      (jdbc/execute! tr (into [(build-insert-sql-request parameters)] (:values parameters))))))
+
 (defn generate-tag-filter [tags]
   (loop [acc "mg.tag_id in ("
          remaining tags]
@@ -137,7 +142,7 @@
         (recur (str acc (first remaining) " and ") (rest remaining))))))
 
 (defn get-manga-list [filters]
-  (let [sql (str "with manga_list as (SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, mp.id, (select count(*) from manga_like ml where ml.manga_id = manga.id) as like_count
+  (let [sql (str "with manga_list as (SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, manga.manga_group_id, mp.id, (select count(*) from manga_like ml where ml.manga_id = manga.id) as like_count
                  FROM manga manga
                  left join manga_page mp ON mp.manga_id = manga.id
                  left join manga_tag mg on mg.manga_id = manga.id "
@@ -152,36 +157,33 @@
 (defn get-manga-by-id [uuid]
   (with-open [conn (jdbc/get-connection datasource)
               stmt (jdbc/prepare conn ["select m.id, m.name, m.description, m.created_at, array_agg(mp.id) as pages,
+                                         m.manga_group_id,
                                          COALESCE( (
-                                            SELECT json_agg(json_build_object('id', mc.manga_id, 'name', m2.name, 'preview_id', (select id from manga_page where manga_id = mc.manga_id limit 1)))
-                                            FROM manga_connection mc
-                                            JOIN manga m2 ON m2.id = mc.manga_id
-                                            WHERE mc.connection_id = (
-                                              SELECT connection_id
-                                              FROM manga_connection
-                                              WHERE manga_id = m.id
-                                            ) AND mc.manga_id != m.id
-                                         ), '[]'::json ) AS connections
+                                            SELECT json_agg(json_build_object('id', m2.id,
+                                            'name', m2.name,
+                                            'preview_id', (select id from manga_page where manga_id = m2.id limit 1)))
+                                            FROM manga_group mg
+                                            JOIN manga m2 ON m2.manga_group_id = m.manga_group_id
+                                            WHERE mg.id = m.manga_group_id AND m2.id != m.id
+                                         ), '[]'::json ) AS manga_group
                                         from manga m
                                         left join manga_page mp on m.id = mp.manga_id
-                                        where m.id = cast(? as uuid)
-                                        group by m.id" uuid])]
+                                        where m.id = ?
+                                        group by m.id" (java.util.UUID/fromString uuid)])]
     (map (fn [row]
            {:id (.toString (:manga/id row))
             :name (:manga/name row)
             :description (:manga/description row)
+            :manga_group_id (some-> row :manga/manga_group_id str)
             :created_at (.toString (:manga/created_at row))
-            :connections (<-pgobject (:connections row))
+            :manga_group (<-pgobject (:manga_group row))
             :page_list (->> (.getArray (:pages row)) (filter some?) (mapv str))})
          (jdbc/execute! stmt))))
 
-(get-manga-by-id (java.util.UUID/fromString "ed20f52d-26fc-4f34-bda5-b36e40511491"))
-(get-manga-by-id (java.util.UUID/fromString "65a1a660-eb2c-4b23-b231-164bfc2b3fcf"))
-
-(defn create-manga [name description]
+(defn create-manga [name description manga_group_id]
   (insert-sql-request {:table-name "manga"
-                       :columns ["id", "name" "description"]
-                       :values [(java.util.UUID/randomUUID) name description]
+                       :columns ["id", "name" "description" "manga_group_id"]
+                       :values [(java.util.UUID/randomUUID) name description manga_group_id]
                        :return ["id"]}))
 
 (defn add-user [id email password]
@@ -236,3 +238,20 @@
   (insert-sql-request {:table-name "\"comment\""
                        :columns ["id", "manga_id", "user_id" "content"]
                        :values [(java.util.UUID/randomUUID) (java.util.UUID/fromString manga-id) user-id text]}))
+
+(defn generate-in [field count]
+  (when (> count 0)
+    (loop [acc (str " where " field " in (")
+           iter count]
+      (if (= iter 1)
+        (str acc "?)")
+        (recur (str acc "?,") (- iter 1))))))
+
+(defn create-manga-group [name manga-id-list]
+  (jdbc/with-transaction [tr datasource]
+    (let [return-id (jdbc/execute! tr ["insert into manga_group (id, name) values (?,?) returning id" (java.util.UUID/randomUUID) name])
+          id (:manga_group/id (first return-id))]
+      (jdbc/execute! tr (into
+                         [(str "update manga set manga_group_id = ?" (generate-in "id" (count manga-id-list))) id]
+                         (map #(java.util.UUID/fromString %) manga-id-list)))
+      id)))

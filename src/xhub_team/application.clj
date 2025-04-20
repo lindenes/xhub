@@ -15,7 +15,8 @@
             [xhub-team.errors :as app-errors]
             [clojure.data.json :as json]
             [xhub-team.errors :as err]
-            [xhub-team.domain :as domain]))
+            [xhub-team.domain :as domain]
+            [clojure.string :as string]))
 
 (defn cors-middleware [handler]
   (fn [request]
@@ -73,11 +74,9 @@
 (defn token-wrapper [handler]
   (fn [request]
     (let [token (get (:headers request) "token")]
-      (do
-        (when token (infra/update-session-time token))
-        (handler request)))))
+      (when token (infra/update-session-time token))
+      (handler request))))
 
-;; Спецификация для одного элемента манги
 (s/def ::id string?)
 (s/def ::name string?)
 (s/def ::description (s/nilable string?))
@@ -85,20 +84,20 @@
 (s/def ::created_at string?)
 (s/def ::page_list (s/coll-of string?))
 (s/def ::like_count int?)
-(s/def ::manga_connection (s/keys :req-un [::id ::name] :opt-un [::preview_id]))
-(s/def ::connections (s/coll-of ::manga_connection))
-(s/def ::manga (s/keys :req-un [::id ::name ::description ::preview_id ::like_count]))
-
-;; Спецификация для массива манги
+(s/def ::manga_group_item (s/keys :req-un [::id ::name] :opt-un [::preview_id]))
+(s/def ::manga_group (s/coll-of ::manga_group_item))
+(s/def ::manga_group_id string?)
+(s/def ::manga (s/keys :req-un [::id ::name ::description ::preview_id ::like_count ::manga_group_id]))
 (s/def ::manga_list (s/coll-of ::manga))
+(s/def ::manga_id_list (s/coll-of ::id))
 
-(s/def ::full_manga (s/keys :req-un [::id ::name ::description ::created_at ::page_list ::connections]))
+(s/def ::full_manga (s/keys :req-un [::id ::name ::created_at ::page_list] :opt-un [::manga_group_id ::manga_group ::description]))
 
-(s/def ::limit nat-int?)
-(s/def ::offset nat-int?)
-(s/def ::name (s/nilable string?))
-(s/def ::order_by (s/nilable int?))
-(s/def ::tags (s/nilable (s/coll-of int?)))
+(s/def ::search_limit nat-int?)
+(s/def ::search_offset nat-int?)
+(s/def ::search_name (s/nilable string?))
+(s/def ::search_order_by (s/nilable int?))
+(s/def ::search_tags (s/nilable (s/coll-of int?)))
 
 (s/def ::email (s/nilable string?))
 (s/def ::password (s/nilable string?))
@@ -176,11 +175,11 @@
 
      ["/search"
       {:post {:responses {200 {:body ::manga_list}}
-              :parameters {:body (s/keys :req-un [::limit
-                                                  ::offset]
-                                         :opt-un [::name
-                                                  ::order_by
-                                                  ::tags])}
+              :parameters {:body (s/keys :req-un [::search_limit
+                                                  ::search_offset]
+                                         :opt-un [::search_name
+                                                  ::search_order_by
+                                                  ::search_tags])}
               :handler (fn [{{{:keys [limit offset name order-by tags]} :body} :parameters}]
                          {:status 200
                           :body (map (fn [manga]
@@ -188,7 +187,8 @@
                                         :name (:manga/name manga)
                                         :description (:manga/description manga)
                                         :preview_id (when (:manga_page/id manga) (.toString (:manga_page/id manga)))
-                                        :like_count (:like_count manga)})
+                                        :like_count (:like_count manga)
+                                        :manga_group_id (when (:manga/manga_group_id manga) (.toString (:manga/manga_group_id manga)))})
                                      (infra/get-manga-list
                                       {:limit limit
                                        :offset offset
@@ -206,14 +206,20 @@
                                             (catch Exception _ (ex-info "parse to uuid error" app-errors/request-format-error)))]
                                  (first (infra/get-manga-by-id uuid)))})}
        :post {:responses {200 {:body {:id string?}}}
-              :parameters {:body {:name string? :description (s/nilable string?)}}
-              :handler (fn [{{{:keys [name description]} :body} :parameters}]
-                         (let [db-id (-> (infra/create-manga name description)
+              :parameters {:body (s/keys :req-un [::name] :opt-un [::description ::manga_group_id])}
+              :handler (fn [{{{:keys [name description manga-group-id]} :body} :parameters}]
+                         (let [db-id (-> (infra/create-manga name description manga-group-id)
                                          first
                                          :manga/id
                                          .toString)]
                            {:status 200
-                            :body {:id db-id}}))}}]]
+                            :body {:id db-id}}))}}]
+     ["/manga-group"
+      {:tags [:manga-group]
+       :post {:responses {200 {:body {:id string?}}}
+              :parameters {:body (s/keys :req-un [::name ::manga_id_list])}
+              :handler (fn [{{{:keys [name manga-id-list]} :body} :parameters}]
+                         (infra/create-manga-group name manga-id-list))}}]]
 
     {:data {:coercion reitit.coercion.spec/coercion
             :muuntaja m/instance
