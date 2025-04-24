@@ -86,18 +86,18 @@
 (s/def ::like_count int?)
 (s/def ::manga_group_item (s/keys :req-un [::id ::name] :opt-un [::preview_id]))
 (s/def ::manga_group (s/coll-of ::manga_group_item))
-(s/def ::manga_group_id string?)
-(s/def ::manga (s/keys :req-un [::id ::name ::description ::preview_id ::like_count ::manga_group_id]))
+(s/def ::manga_group_id (s/nilable string?))
+(s/def ::manga (s/keys :req-un [::id ::name ::preview_id ::like_count] :opt-un [::description ::manga_group_id]))
 (s/def ::manga_list (s/coll-of ::manga))
 (s/def ::manga_id_list (s/coll-of ::id))
 
 (s/def ::full_manga (s/keys :req-un [::id ::name ::created_at ::page_list] :opt-un [::manga_group_id ::manga_group ::description]))
 
-(s/def ::search_limit nat-int?)
-(s/def ::search_offset nat-int?)
-(s/def ::search_name (s/nilable string?))
-(s/def ::search_order_by (s/nilable int?))
-(s/def ::search_tags (s/nilable (s/coll-of int?)))
+(s/def :search/limit nat-int?)
+(s/def :search/offset nat-int?)
+(s/def :search/name (s/nilable string?))
+(s/def :search/order_by (s/nilable int?))
+(s/def :search/tags (s/nilable (s/coll-of int?)))
 
 (s/def ::email (s/nilable string?))
 (s/def ::password (s/nilable string?))
@@ -175,11 +175,11 @@
 
      ["/search"
       {:post {:responses {200 {:body ::manga_list}}
-              :parameters {:body (s/keys :req-un [::search_limit
-                                                  ::search_offset]
-                                         :opt-un [::search_name
-                                                  ::search_order_by
-                                                  ::search_tags])}
+              :parameters {:body (s/keys :req-un [:search/limit
+                                                  :search/offset]
+                                         :opt-un [:search/name
+                                                  :search/order_by
+                                                  :search/tags])}
               :handler (fn [{{{:keys [limit offset name order-by tags]} :body} :parameters}]
                          {:status 200
                           :body (map (fn [manga]
