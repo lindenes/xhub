@@ -3,7 +3,8 @@
             [next.jdbc :as jdbc]
             [clojure.data.json :as json]
             [taoensso.carmine :as car :refer [wcar]]
-            [next.jdbc.sql :as sql])
+            [next.jdbc.sql :as sql]
+            [xhub-team.errors :as error])
   (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]
             [org.postgresql.util PGobject]
             [jakarta.mail Session Message Transport Message$RecipientType]
@@ -170,21 +171,25 @@
                                         left join manga_page mp on m.id = mp.manga_id
                                         where m.id = ?
                                         group by m.id" (java.util.UUID/fromString uuid)])]
-    (map (fn [row]
-           {:id (.toString (:manga/id row))
-            :name (:manga/name row)
-            :description (:manga/description row)
-            :manga_group_id (some-> row :manga/manga_group_id str)
-            :created_at (.toString (:manga/created_at row))
-            :manga_group (<-pgobject (:manga_group row))
-            :page_list (->> (.getArray (:pages row)) (filter some?) (mapv str))})
-         (jdbc/execute! stmt))))
+    (let [result (jdbc/execute! stmt)
+          manga (try (first result)
+                     (catch Exception _ (throw (ex-info "not found manga in database" error/not_found_manga_by_id_error))))]
+      {:id (.toString (:manga/id manga))
+       :name (:manga/name manga)
+       :description (:manga/description manga)
+       :manga_group_id (some-> manga :manga/manga_group_id str)
+       :created_at (.toString (:manga/created_at manga))
+       :manga_group (<-pgobject (:manga_group manga))
+       :page_list (->> (.getArray (:pages manga)) (filter some?) (mapv str))})))
 
 (defn create-manga [name description manga_group_id]
-  (insert-sql-request {:table-name "manga"
-                       :columns ["id", "name" "description" "manga_group_id"]
-                       :values [(java.util.UUID/randomUUID) name description manga_group_id]
-                       :return ["id"]}))
+  (->  (insert-sql-request {:table-name "manga"
+                            :columns ["id", "name" "description" "manga_group_id"]
+                            :values [(java.util.UUID/randomUUID) name description (java.util.UUID/fromString manga_group_id)]
+                            :return ["id"]})
+       first
+       :manga/id
+       .toString))
 
 (defn add-user [id email password]
   (insert-sql-request {:table-name  "\"user\""
@@ -193,16 +198,16 @@
 
 (defn find-user [email password]
   (with-open [conn (jdbc/get-connection datasource)
-                     stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.email = ? and u.password = ?" email password])]
-          (map
-           (fn [row]
-             {:id (:user/id row)
-              :email (:user/email row)
-              :is_author (:user/is_author row)
-              :password (:user/password row)
-              :is_prime (:user/is_prime row)
-              :created_at (:user/created_at row)})
-           (jdbc/execute! stmt))))
+              stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.email = ? and u.password = ?" email password])]
+    (map
+     (fn [row]
+       {:id (:user/id row)
+        :email (:user/email row)
+        :is_author (:user/is_author row)
+        :password (:user/password row)
+        :is_prime (:user/is_prime row)
+        :created_at (:user/created_at row)})
+     (jdbc/execute! stmt))))
 
 (defn busy-email? [email]
   (with-open [conn (jdbc/get-connection datasource)
@@ -254,4 +259,4 @@
       (jdbc/execute! tr (into
                          [(str "update manga set manga_group_id = ?" (generate-in "id" (count manga-id-list))) id]
                          (map #(java.util.UUID/fromString %) manga-id-list)))
-      id)))
+      (.toString id))))

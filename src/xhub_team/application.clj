@@ -204,22 +204,18 @@
                          :body (let [uuid (try
                                             (java.util.UUID/fromString id)
                                             (catch Exception _ (ex-info "parse to uuid error" app-errors/request-format-error)))]
-                                 (first (infra/get-manga-by-id uuid)))})}
+                                 (infra/get-manga-by-id uuid))})}
        :post {:responses {200 {:body {:id string?}}}
               :parameters {:body (s/keys :req-un [::name] :opt-un [::description ::manga_group_id])}
               :handler (fn [{{{:keys [name description manga-group-id]} :body} :parameters}]
-                         (let [db-id (-> (infra/create-manga name description manga-group-id)
-                                         first
-                                         :manga/id
-                                         .toString)]
-                           {:status 200
-                            :body {:id db-id}}))}}]
+                         {:status 200
+                          :body {:id  (infra/create-manga name description manga-group-id)}})}}]
      ["/manga-group"
       {:tags [:manga-group]
        :post {:responses {200 {:body {:id string?}}}
               :parameters {:body (s/keys :req-un [::name ::manga_id_list])}
               :handler (fn [{{{:keys [name manga-id-list]} :body} :parameters}]
-                         (infra/create-manga-group name manga-id-list))}}]]
+                         {:status 200 :body {:id (infra/create-manga-group name manga-id-list)}})}}]]
 
     {:data {:coercion reitit.coercion.spec/coercion
             :muuntaja m/instance

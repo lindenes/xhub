@@ -58,17 +58,12 @@
     (when (nil? user) (throw (ex-info "not found user by token" err/user-not-auth)))
     user))
 
-(defn db->manga [manga-id]
-  (let [manga (infra/get-manga-by-id manga-id)]
-    (when (nil? manga) (throw (ex-info "not found manga by id" err/not_found_manga_by_id_error)))
-    manga))
-
 (defn like-manga [token manga_id]
   (let [user (redis->user token)
-        _ (db->manga manga_id)]
+        _ (infra/get-manga-by-id manga_id)]
     (infra/add-like (:id user) manga_id)))
 
 (defn add-manga-comment [manga-id token text]
   (let [user (redis->user token)
-        _ (db->manga manga-id)]
+        _ (infra/get-manga-by-id manga-id)]
     (infra/add-manga-comment manga-id (:id user) text)))

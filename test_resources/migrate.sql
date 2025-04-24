@@ -14,6 +14,7 @@ create table manga(
 	id UUID primary key not null,
 	name text not null,
 	description text,
+  manga_group_id uuid,
 	created_at timestamp default now()
 );
 
@@ -31,13 +32,13 @@ create table manga_tag(
 );
 
 CREATE TABLE manga_page (
-	"oid" text NOT NULL,
+	id uuid NOT NULL,
 	manga_id uuid NOT NULL,
-	CONSTRAINT manga_page_pkey PRIMARY KEY (oid, manga_id)
+	CONSTRAINT manga_page_pkey PRIMARY KEY (id, manga_id)
 );
 
 create table manga_like (
-    manga_id UUID references manga(id) on delete cascade,
+  manga_id UUID references manga(id) on delete cascade,
 	user_id UUID references "user"(id) on delete cascade,
 	primary key (manga_id, user_id)
 );
@@ -51,3 +52,8 @@ create table "comment" (
 );
 
 insert into "comment" (id, manga_id, user_id, content) values ('a84bf6a2-fa92-4b40-8a8f-040c0724d8b9', '3396a57d-38c6-4bc3-ac50-6f8555c915dc', 'a705baad-b3da-437d-8032-92b14afe87f2', 'Тестовый текст');
+
+create table manga_group(
+  id uuid primary key,
+  name text
+);
