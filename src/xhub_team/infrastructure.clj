@@ -4,7 +4,7 @@
             [clojure.data.json :as json]
             [taoensso.carmine :as car :refer [wcar]]
             [next.jdbc.sql :as sql]
-            [xhub-team.errors :as error])
+            [xhub-team.errors :as err])
   (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]
             [org.postgresql.util PGobject]
             [jakarta.mail Session Message Transport Message$RecipientType]
@@ -44,12 +44,17 @@
 
 (defmacro wcar* [& body] `(car/wcar my-wcar-opts ~@body))
 
+(defn redis->user [token]
+  (let [user (wcar* (car/get token))]
+    (when (nil? user) (throw (ex-info "not found user by token" err/user-not-auth)))
+    user))
+
 (defn add-session
-  ([id email password token is_author is_prime is_admin code]
+  ([id email password token is_prime is_admin code]
    (wcar*
-    (car/set token {:id id :email email :password password :token token :is_author is_author :is_prime is_prime :is_admin is_admin :code code} :ex 1800)))
-  ([id email password token is_author is_prime is_admin] (add-session id email password token is_author is_prime is_admin nil))
-  ([id email password token] (add-session id email password token  false false false nil)))
+    (car/set token {:id id :email email :password password :token token :is_prime is_prime :is_admin is_admin :code code} :ex 1800)))
+  ([id email password token is_prime is_admin] (add-session id email password token is_prime is_admin nil))
+  ([id email password token] (add-session id email password token  false false nil)))
 
 (defn update-session-time [token]
   (let [token->user (wcar* (car/get token))]
@@ -173,7 +178,7 @@
                                         group by m.id" (java.util.UUID/fromString uuid)])]
     (let [result (jdbc/execute! stmt)
           manga (try (first result)
-                     (catch Exception _ (throw (ex-info "not found manga in database" error/not_found_manga_by_id_error))))]
+                     (catch Exception _ (throw (ex-info "not found manga in database" err/not_found_manga_by_id_error))))]
       {:id (.toString (:manga/id manga))
        :name (:manga/name manga)
        :description (:manga/description manga)
@@ -182,10 +187,10 @@
        :manga_group (<-pgobject (:manga_group manga))
        :page_list (->> (.getArray (:pages manga)) (filter some?) (mapv str))})))
 
-(defn create-manga [name description manga_group_id]
+(defn create-manga [name description manga_group_id author-id]
   (->  (insert-sql-request {:table-name "manga"
-                            :columns ["id", "name" "description" "manga_group_id"]
-                            :values [(java.util.UUID/randomUUID) name description (java.util.UUID/fromString manga_group_id)]
+                            :columns ["id", "name" "description" "manga_group_id" "author_id"]
+                            :values [(java.util.UUID/randomUUID) name description (java.util.UUID/fromString manga_group_id) (java.util.UUID/fromString author-id)]
                             :return ["id"]})
        first
        :manga/id
@@ -198,12 +203,11 @@
 
 (defn find-user [email password]
   (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.email = ? and u.password = ?" email password])]
+              stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_prime, u.created_at from \"user\" u where u.email = ? and u.password = ?" email password])]
     (map
      (fn [row]
        {:id (:user/id row)
         :email (:user/email row)
-        :is_author (:user/is_author row)
         :password (:user/password row)
         :is_prime (:user/is_prime row)
         :created_at (:user/created_at row)})
@@ -221,7 +225,7 @@
 
 (defn get-user [id]
   (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_author, u.is_prime, u.created_at from \"user\" u where u.id = cast(? as uuid)" id])]
+              stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_prime, u.created_at from \"user\" u where u.id = cast(? as uuid)" id])]
     (jdbc/execute! stmt)))
 
 (defn get-manga-comments [manga-id]

@@ -159,7 +159,7 @@
                            (domain/confirm-reg code token)
                            {:status 200}))}}]
      ["/auth"
-      {:post {:responses {200 {:body {:email string? :is_author boolean? :is_prime boolean?}}}
+      {:post {:responses {200 {:body {:email string? :is_prime boolean?}}}
               :parameters {:body (s/nilable (s/keys :opt-un [::email ::password])) :headers (s/keys :opt-un [::token])}
               :handler (fn [req]
                          (let [body (-> req :parameters :body)
@@ -205,11 +205,12 @@
                                             (java.util.UUID/fromString id)
                                             (catch Exception _ (ex-info "parse to uuid error" app-errors/request-format-error)))]
                                  (infra/get-manga-by-id uuid))})}
-       :post {:responses {200 {:body {:id string?}}}
+       :post {:responses {200 {:body {:id string?} :headers {:token string?}}}
               :parameters {:body (s/keys :req-un [::name] :opt-un [::description ::manga_group_id])}
-              :handler (fn [{{{:keys [name description manga-group-id]} :body} :parameters}]
+              :handler (fn [{{{:keys [name description manga-group-id]} :body
+                              {:keys [token]} :headers} :parameters}]
                          {:status 200
-                          :body {:id  (infra/create-manga name description manga-group-id)}})}}]
+                          :body {:id  (domain/create-manga name description manga-group-id token)}})}}]
      ["/manga-group"
       {:tags [:manga-group]
        :post {:responses {200 {:body {:id string?}}}

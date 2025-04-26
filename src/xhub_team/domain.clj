@@ -25,7 +25,7 @@
     (if (empty? validation-errors)
       (let [code (rand-nth (range 1000 10000))
             token (.toString (java.util.UUID/randomUUID))]
-        (infra/add-session (.toString (java.util.UUID/randomUUID)) email (sha-256 password) token false false false code)
+        (infra/add-session (.toString (java.util.UUID/randomUUID)) email (sha-256 password) token false false code)
         (infra/send-verification-code email code)
         token)
       (throw (ex-info
@@ -46,24 +46,23 @@
       (if (nil? user)
         (throw (ex-info "not found user in database" err/not_found_user_error))
         (do
-          (infra/add-session (:user user) (:email user) (:password user) token (:is_author user) (:is_prime user) (:is_admin user))
+          (infra/add-session (:user user) (:email user) (:password user) token (:is_prime user) (:is_admin user))
           {:user user :token token})))
     (let [user  (infra/wcar* (car/get token))]
       (if (nil? user)
         (throw (ex-info "not found user in session store" err/not_found_user_error))
         {:user user :token token}))))
 
-(defn redis->user [token]
-  (let [user (infra/wcar* (car/get token))]
-    (when (nil? user) (throw (ex-info "not found user by token" err/user-not-auth)))
-    user))
-
 (defn like-manga [token manga_id]
-  (let [user (redis->user token)
+  (let [user (infra/redis->user token)
         _ (infra/get-manga-by-id manga_id)]
     (infra/add-like (:id user) manga_id)))
 
 (defn add-manga-comment [manga-id token text]
-  (let [user (redis->user token)
+  (let [user (infra/redis->user token)
         _ (infra/get-manga-by-id manga-id)]
     (infra/add-manga-comment manga-id (:id user) text)))
+
+(defn create-manga [name description manga-group-id token]
+  (let [user (infra/redis->user token)]
+    (infra/create-manga name description manga-group-id (:id user))))
