@@ -14,8 +14,9 @@ create table manga(
 	id UUID primary key not null,
 	name text not null,
 	description text,
-  manga_group_id uuid,
-	created_at timestamp default now()
+    manga_group_id uuid,
+	created_at timestamp default now(),
+	author_id uuid not null
 );
 
 insert into manga (id, "name") values ('3396a57d-38c6-4bc3-ac50-6f8555c915dc', 'Тестовая манга');

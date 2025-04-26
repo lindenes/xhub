@@ -123,6 +123,18 @@
     (doseq [parameters parameters-list]
       (jdbc/execute! tr (into [(build-insert-sql-request parameters)] (:values parameters))))))
 
+(defmacro insert-sql-transaction [parameters-list ds]
+  (let [func-list (doall (map #(list 'jdbc/execute! 'tr
+                                    (list 'into [(list 'build-insert-sql-request %1)]
+                                          (list :values %1)))
+                             parameters-list))]
+    (jdbc/with-transaction [tr ds]
+      ~func-list)))
+
+;; (macroexpand (insert-sql-transaction [{:table-name  "\"user\""
+;;                        :columns ["id" "email" "password"]
+;;                        :values ["a" "a" "a"]}] datasource))
+
 (defn generate-tag-filter [tags]
   (loop [acc "mg.tag_id in ("
          remaining tags]

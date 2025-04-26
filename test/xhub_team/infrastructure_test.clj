@@ -52,7 +52,7 @@
              (fact "Добавлено в группу"
                    (= (:manga_group_id manga) add-group-id) => true))
            (let [group-id (:manga_group_id (infra/get-manga-by-id "3396a57d-38c6-4bc3-ac50-6f8555c915dc"))
-                 created-manga-id (infra/create-manga "test manga" "test description", group-id)
+                 created-manga-id (infra/create-manga "test manga" "test description", group-id "a705baad-b3da-437d-8032-92b14afe87f2")
                  created-manga (infra/get-manga-by-id created-manga-id)]
              (fact "Проверка на наличие в группе"
                    (some #(= (:id %) "3396a57d-38c6-4bc3-ac50-6f8555c915dc") (:manga_group created-manga)) => true)))))
