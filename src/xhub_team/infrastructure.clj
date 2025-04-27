@@ -51,12 +51,8 @@
     (when (nil? user) (throw (ex-info "not found user by token" err/user-not-auth)))
     user))
 
-(defn add-session
-  ([id email password token is_prime is_admin code]
-   (wcar*
-    (car/set token {:id id :email email :password password :token token :is_prime is_prime :is_admin is_admin :code code} :ex 1800)))
-  ([id email password token is_prime is_admin] (add-session id email password token is_prime is_admin nil))
-  ([id email password token] (add-session id email password token  false false nil)))
+(defn add-session [user]
+  (wcar* (car/set user)))
 
 (defn update-session-time [token]
   (let [token->user (wcar* (car/get token))]

@@ -25,7 +25,11 @@
     (if (empty? validation-errors)
       (let [code (rand-nth (range 1000 10000))
             token (.toString (java.util.UUID/randomUUID))]
-        (infra/add-session (.toString (java.util.UUID/randomUUID)) email (sha-256 password) token false false code)
+        (infra/add-session {:id (.toString (java.util.UUID/randomUUID))
+                            :email email
+                            :password (sha-256 password)
+                            :token token
+                            :code code})
         (infra/send-verification-code email code)
         token)
       (throw (ex-info
@@ -43,7 +47,7 @@
     (let [hashed_password (sha-256 password)
           user (infra/find-user email hashed_password)
           token (.toString (java.util.UUID/randomUUID))]
-      (infra/add-session (:id user) (:email user) (:password user) token (:is_prime user) (:is_admin user))
+      (infra/add-session user)
       {:user user :token token})
     (let [user (infra/redis->user token)]
       (if (nil? user)
