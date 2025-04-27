@@ -51,8 +51,8 @@
     (when (nil? user) (throw (ex-info "not found user by token" err/user-not-auth)))
     user))
 
-(defn add-session [user]
-  (wcar* (car/set user)))
+(defn add-session [token user]
+  (wcar* (car/set token user :ex 1800)))
 
 (defn update-session-time [token]
   (let [token->user (wcar* (car/get token))]
