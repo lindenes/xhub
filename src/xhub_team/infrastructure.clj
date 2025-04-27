@@ -4,7 +4,8 @@
             [clojure.data.json :as json]
             [taoensso.carmine :as car :refer [wcar]]
             [next.jdbc.sql :as sql]
-            [xhub-team.errors :as err])
+            [xhub-team.errors :as err]
+            [reitit.ring.middleware.parameters :as parameters])
   (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]
             [org.postgresql.util PGobject]
             [jakarta.mail Session Message Transport Message$RecipientType]
@@ -113,27 +114,18 @@
         returning (write-returning (:return parameters))]
     (str init-str columns values returning)))
 
-(defn insert-sql-request [parameters]
-  (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn (into [(build-insert-sql-request parameters)] (:values parameters)))]
-    (jdbc/execute! stmt)))
+(defn insert-sql-request
+  ([parameters]
+   (with-open [conn (jdbc/get-connection datasource)
+               stmt (jdbc/prepare conn (into [(build-insert-sql-request parameters)] (:values parameters)))]
+     (jdbc/execute! stmt)))
+  ([parameters tr]
+   (jdbc/execute! tr (into [(build-insert-sql-request parameters)] (:values parameters)))))
 
 (defn insert-transcation-sql [parameters-list]
   (jdbc/with-transaction [tr datasource]
-    (doseq [parameters parameters-list]
-      (jdbc/execute! tr (into [(build-insert-sql-request parameters)] (:values parameters))))))
-
-(defmacro insert-sql-transaction [parameters-list ds]
-  (let [func-list (doall (map #(list 'jdbc/execute! 'tr
-                                    (list 'into [(list 'build-insert-sql-request %1)]
-                                          (list :values %1)))
-                             parameters-list))]
-    (jdbc/with-transaction [tr ds]
-      ~func-list)))
-
-;; (macroexpand (insert-sql-transaction [{:table-name  "\"user\""
-;;                        :columns ["id" "email" "password"]
-;;                        :values ["a" "a" "a"]}] datasource))
+    (mapv #(jdbc/execute! tr (into [(build-insert-sql-request %1)] (:values %1)))
+          parameters-list)))
 
 (defn generate-tag-filter [tags]
   (loop [acc "mg.tag_id in ("
@@ -270,7 +262,10 @@
 
 (defn create-manga-group [name manga-id-list]
   (jdbc/with-transaction [tr datasource]
-    (let [return-id (jdbc/execute! tr ["insert into manga_group (id, name) values (?,?) returning id" (java.util.UUID/randomUUID) name])
+    (let [return-id (insert-sql-request {:table-name "manga_group"
+                                         :columns ["id" "name"]
+                                         :values [(java.util.UUID/randomUUID) name]
+                                         :return ["id"]} tr)
           id (:manga_group/id (first return-id))]
       (jdbc/execute! tr (into
                          [(str "update manga set manga_group_id = ?" (generate-in "id" (count manga-id-list))) id]

@@ -19,7 +19,7 @@ create table manga(
 	author_id uuid not null
 );
 
-insert into manga (id, "name") values ('3396a57d-38c6-4bc3-ac50-6f8555c915dc', 'Тестовая манга');
+insert into manga (id, "name", author_id) values ('3396a57d-38c6-4bc3-ac50-6f8555c915dc', 'Тестовая манга' 'a705baad-b3da-437d-8032-92b14afe87f2');
 
 create table tag(
 	id serial primary key,
