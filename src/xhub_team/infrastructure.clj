@@ -196,9 +196,14 @@
          :page_list (->> (.getArray (:pages manga)) (filter some?) (mapv str))}))))
 
 (defn create-manga [name description manga_group_id author-id]
+  (println name description manga_group_id author-id)
   (->  (insert-sql-request {:table-name "manga"
                             :columns ["id", "name" "description" "manga_group_id" "author_id"]
-                            :values [(java.util.UUID/randomUUID) name description (java.util.UUID/fromString manga_group_id) (java.util.UUID/fromString author-id)]
+                            :values [(java.util.UUID/randomUUID)
+                                     name
+                                     description
+                                     (when (not (nil? manga_group_id)) (java.util.UUID/fromString manga_group_id))
+                                     (java.util.UUID/fromString author-id)]
                             :return ["id"]})
        first
        :manga/id
@@ -216,7 +221,7 @@
     (let [user (first (jdbc/execute! stmt))]
       (when-not user
         (throw (ex-info "User not found in database" err/not_found_user_error)))
-      {:id (:user/id user)
+      {:id (.toString (:user/id user))
        :email (:user/email user)
        :password (:user/password user)
        :is_prime (:user/is_prime user)

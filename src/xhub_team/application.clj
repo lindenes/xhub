@@ -207,10 +207,11 @@
                          :body (infra/get-manga-by-id id)})}
        :post {:responses {200 {:body {:id string?} :headers {:token string?}}}
               :parameters {:body (s/keys :req-un [::name] :opt-un [::description ::manga_group_id])}
-              :handler (fn [{{{:keys [name description manga-group-id]} :body
-                              {:keys [token]} :headers} :parameters}]
-                         {:status 200
-                          :body {:id  (domain/create-manga name description manga-group-id token)}})}}]
+              :handler (fn [req]
+                         (let [body (-> req :parameters :body)
+                               token  (get (:headers req) "token")]
+                           {:status 200
+                            :body {:id  (domain/create-manga (:name body) (:description body) (:manga-group-id body) token)}}))}}]
      ["/manga-group"
       {:tags [:manga-group]
        :post {:responses {200 {:body {:id string?}}}
