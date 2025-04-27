@@ -8,6 +8,7 @@
             [reitit.ring.middleware.parameters :as parameters])
   (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]
             [org.postgresql.util PGobject]
+            [java.util UUID]
             [jakarta.mail Session Message Transport Message$RecipientType]
             [jakarta.mail.internet InternetAddress MimeMessage]))
 
@@ -164,9 +165,12 @@
         params (remove nil? (vec (concat (:tags filters) [(:name filters) (:limit filters) (:offset filters)])))]
     (jdbc/execute! datasource (into [sql] params))))
 
-(defn get-manga-by-id [uuid]
-  (with-open [conn (jdbc/get-connection datasource)
-              stmt (jdbc/prepare conn ["select m.id, m.name, m.description, m.created_at, array_agg(mp.id) as pages,
+(defn get-manga-by-id [id]
+  (let [uuid (try (UUID/fromString id)
+                  (catch Exception e
+                    (throw (ex-info (.getMessage e) err/is-not-uuid-error))))]
+    (with-open [conn (jdbc/get-connection datasource)
+                stmt (jdbc/prepare conn ["select m.id, m.name, m.description, m.created_at, array_agg(mp.id) as pages,
                                          m.manga_group_id,
                                          COALESCE( (
                                             SELECT json_agg(json_build_object('id', m2.id,
@@ -179,17 +183,17 @@
                                         from manga m
                                         left join manga_page mp on m.id = mp.manga_id
                                         where m.id = ?
-                                        group by m.id" (java.util.UUID/fromString uuid)])]
-    (let [result (jdbc/execute! stmt)
-          manga (try (first result)
-                     (catch Exception _ (throw (ex-info "not found manga in database" err/not_found_manga_by_id_error))))]
-      {:id (.toString (:manga/id manga))
-       :name (:manga/name manga)
-       :description (:manga/description manga)
-       :manga_group_id (some-> manga :manga/manga_group_id str)
-       :created_at (.toString (:manga/created_at manga))
-       :manga_group (<-pgobject (:manga_group manga))
-       :page_list (->> (.getArray (:pages manga)) (filter some?) (mapv str))})))
+                                        group by m.id" uuid])]
+      (let [result (jdbc/execute! stmt)
+            manga (try (first result)
+                       (catch Exception _ (throw (ex-info "not found manga in database" err/not_found_manga_by_id_error))))]
+        {:id (.toString (:manga/id manga))
+         :name (:manga/name manga)
+         :description (:manga/description manga)
+         :manga_group_id (some-> manga :manga/manga_group_id str)
+         :created_at (.toString (:manga/created_at manga))
+         :manga_group (<-pgobject (:manga_group manga))
+         :page_list (->> (.getArray (:pages manga)) (filter some?) (mapv str))}))))
 
 (defn create-manga [name description manga_group_id author-id]
   (->  (insert-sql-request {:table-name "manga"

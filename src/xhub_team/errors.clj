@@ -30,3 +30,6 @@
 
 (def not_found_manga_by_id_error
   {:error-data (list {:error_code 8 :error_message "Манга не найдена"})})
+
+(def is-not-uuid-error
+  {:error-data (list {:error_code 9 :error_message "Не удалось преобразовать в UUID"})})

@@ -201,10 +201,7 @@
              :parameters {:query {:id string?}}
              :handler (fn [{{{:keys [id]} :query} :parameters}]
                         {:status 200
-                         :body (let [uuid (try
-                                            (java.util.UUID/fromString id)
-                                            (catch Exception _ (ex-info "parse to uuid error" app-errors/request-format-error)))]
-                                 (infra/get-manga-by-id uuid))})}
+                         :body (infra/get-manga-by-id id)})}
        :post {:responses {200 {:body {:id string?} :headers {:token string?}}}
               :parameters {:body (s/keys :req-un [::name] :opt-un [::description ::manga_group_id])}
               :handler (fn [{{{:keys [name description manga-group-id]} :body
