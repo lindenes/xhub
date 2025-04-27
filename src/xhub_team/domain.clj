@@ -43,7 +43,7 @@
     (let [hashed_password (sha-256 password)
           user (infra/find-user email hashed_password)
           token (.toString (java.util.UUID/randomUUID))]
-      (infra/add-session (:user user) (:email user) (:password user) token (:is_prime user) (:is_admin user))
+      (infra/add-session (:id user) (:email user) (:password user) token (:is_prime user) (:is_admin user))
       {:user user :token token})
     (let [user (infra/redis->user token)]
       (if (nil? user)

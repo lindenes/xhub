@@ -165,7 +165,10 @@
                          (let [body (-> req :parameters :body)
                                header_token  (get (:headers req) "token")
                                user_data (domain/authorization (:email body) (:password body) header_token)
-                               user (:user user_data)
+                               user (-> (:user user_data)
+                                        (dissoc :password)
+                                        (dissoc :id)
+                                        (dissoc :code))
                                token (if (nil? (:token user_data))
                                        header_token
                                        (:token user_data))]

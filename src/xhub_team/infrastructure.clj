@@ -213,9 +213,9 @@
   (with-open [conn (jdbc/get-connection datasource)
               stmt (jdbc/prepare conn ["select u.id, u.email, u.password, u.is_prime, u.created_at from \"user\" u where u.email = ? and u.password = ?" email password])]
 
-    (let [user (try (first (jdbc/execute! stmt))
-                    (catch Exception _ (throw
-                                        (ex-info "not found user in database" err/not_found_user_error))))]
+    (let [user (first (jdbc/execute! stmt))]
+      (when-not user
+        (throw (ex-info "User not found in database" err/not_found_user_error)))
       {:id (:user/id user)
        :email (:user/email user)
        :password (:user/password user)
