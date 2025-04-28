@@ -124,6 +124,23 @@
     (mapv #(jdbc/execute! tr (into [(build-insert-sql-request %1)] (:values %1)))
           parameters-list)))
 
+(defn write-select-columns [columns]
+  (loop [acc ""
+         remaining-columns columns]
+    (if (= (count remaining-columns) 1)
+      (str acc (first remaining-columns))
+      (recur (str acc (first remaining-columns) ",") (rest remaining-columns)))))
+
+(defn build-select-sql-request [parameters]
+  (let [columns (write-select-columns (:columns parameters))
+        table-name (:table-name parameters)]
+    (str "select " columns " from " table-name)))
+
+(defn select-sql-request [parameters]
+  (with-open [conn (jdbc/get-connection datasource)
+              stmt (jdbc/prepare conn [(build-select-sql-request parameters)])]
+    (jdbc/execute! stmt)))
+
 (defn generate-tag-filter [tags]
   (loop [acc "mg.tag_id in ("
          remaining tags]
@@ -277,3 +294,11 @@
                          [(str "update manga set manga_group_id = ?" (generate-in "id" (count manga-id-list))) id]
                          (map #(java.util.UUID/fromString %) manga-id-list)))
       (.toString id))))
+
+(defn get-tag-list []
+  (mapv
+   (fn [row]
+     {:id (:tag/id row)
+      :name (:tag/name row)})
+   (select-sql-request {:table-name "tag"
+                        :columns ["id" "name"]})))

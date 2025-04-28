@@ -108,6 +108,9 @@
 (s/def ::user_login (s/nilable string?))
 (s/def ::comment (s/coll-of (s/keys :req-un [::id ::content ::user_id ::user_login])))
 
+(s/def :int/id int?)
+(s/def ::tag-list (s/coll-of (s/keys :req-un [:int/id ::name])))
+
 (def app
   (ring/ring-handler
    (ring/router
@@ -217,7 +220,13 @@
        :post {:responses {200 {:body {:id string?}}}
               :parameters {:body (s/keys :req-un [::name ::manga_id_list])}
               :handler (fn [{{{:keys [name manga-id-list]} :body} :parameters}]
-                         {:status 200 :body {:id (infra/create-manga-group name manga-id-list)}})}}]]
+                         {:status 200 :body {:id (infra/create-manga-group name manga-id-list)}})}}]
+     ["/tag"
+      {:tags [:manga-tags]
+       :get {:responses {200 {:body ::tag-list}}
+             :handler (fn [req]
+                        {:status 200
+                         :body (infra/get-tag-list)})}}]]
 
     {:data {:coercion reitit.coercion.spec/coercion
             :muuntaja m/instance
