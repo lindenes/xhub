@@ -168,10 +168,14 @@
       (str "where " (clj-str/join " and " filter-list)))))
 
 (defn get-manga-list [filters user-id]
-  (let [sql (str "with manga_list as (SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, manga.manga_group_id, mp.id, (select count(*) from manga_like ml where ml.manga_id = manga.id) as like_count
-                 FROM manga manga
-                 left join manga_page mp ON mp.manga_id = manga.id
-                 left join manga_tag mg on mg.manga_id = manga.id "
+  (let [sql (str "with manga_list as (
+                    SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, 
+                    manga.manga_group_id, mp.id, 
+                    (select count(*) from manga_like ml where ml.manga_id = manga.id) as like_count,
+                    exists (select manga_id from manga_like where manga_id = manga.id) as liked
+                    FROM manga manga
+                    left join manga_page mp ON mp.manga_id = manga.id
+                    left join manga_tag mg on mg.manga_id = manga.id "
                  (when (or (:name filters) (:tags filters) (:liked-manga filters)) (build-filters filters user-id))
                  ")"
                  " select * from manga_list "

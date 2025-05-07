@@ -84,10 +84,11 @@
 (s/def ::created_at string?)
 (s/def ::page_list (s/coll-of string?))
 (s/def ::like_count int?)
+(s/def ::liked boolean?)
 (s/def ::manga_group_item (s/keys :req-un [::id ::name] :opt-un [::preview_id]))
 (s/def ::manga_group (s/coll-of ::manga_group_item))
 (s/def ::manga_group_id (s/nilable string?))
-(s/def ::manga (s/keys :req-un [::id ::name ::preview_id ::like_count] :opt-un [::description ::manga_group_id]))
+(s/def ::manga (s/keys :req-un [::id ::name ::preview_id ::like_count ::liked] :opt-un [::description ::manga_group_id]))
 (s/def ::manga_list (s/coll-of ::manga))
 (s/def ::manga_id_list (s/coll-of ::id))
 
@@ -204,7 +205,8 @@
                                           :description (:manga/description manga)
                                           :preview_id (when (:manga_page/id manga) (.toString (:manga_page/id manga)))
                                           :like_count (:like_count manga)
-                                          :manga_group_id (when (:manga/manga_group_id manga) (.toString (:manga/manga_group_id manga)))})
+                                          :manga_group_id (when (:manga/manga_group_id manga) (.toString (:manga/manga_group_id manga)))
+                                          :liked (:liked manga)})
                                        (infra/get-manga-list
                                         {:limit limit
                                          :offset offset
