@@ -49,10 +49,7 @@
           token (.toString (java.util.UUID/randomUUID))]
       (infra/add-session token user)
       {:user user :token token})
-    (let [user (infra/redis->user token)]
-      (if (nil? user)
-        (throw (ex-info "not found user in session store" err/not_found_user_error))
-        {:user user :token token}))))
+    {:user (infra/redis->user token) :token token}))
 
 (defn like-manga [token manga_id]
   (let [user (infra/redis->user token)

@@ -98,6 +98,7 @@
 (s/def :search/name (s/nilable string?))
 (s/def :search/order_by (s/nilable int?))
 (s/def :search/tags (s/nilable (s/coll-of int?)))
+(s/def :search/liked boolean?)
 
 (s/def ::email (s/nilable string?))
 (s/def ::password (s/nilable string?))
@@ -185,22 +186,33 @@
                                                   :search/offset]
                                          :opt-un [:search/name
                                                   :search/order_by
-                                                  :search/tags])}
-              :handler (fn [{{{:keys [limit offset name order-by tags]} :body} :parameters}]
-                         {:status 200
-                          :body (map (fn [manga]
-                                       {:id (.toString (:manga/id manga))
-                                        :name (:manga/name manga)
-                                        :description (:manga/description manga)
-                                        :preview_id (when (:manga_page/id manga) (.toString (:manga_page/id manga)))
-                                        :like_count (:like_count manga)
-                                        :manga_group_id (when (:manga/manga_group_id manga) (.toString (:manga/manga_group_id manga)))})
-                                     (infra/get-manga-list
-                                      {:limit limit
-                                       :offset offset
-                                       :name (when name (str "%" name "%"))
-                                       :order-by order-by
-                                       :tags tags}))})}}]
+                                                  :search/tags
+                                                  :search/liked])}
+              :handler (fn [req]
+                         (let [body (-> req :parameters :body)
+                               {:keys [limit offset name order-by tags liked]} body
+                               header_token (get (:headers req) "token")
+                               user-id (try
+                                         (:id (infra/redis->user header_token))
+                                         (catch Exception e
+                                           (when (= (:type (ex-data e)) :err/user-not-auth)
+                                             nil)))]
+                           {:status 200
+                            :body (map (fn [manga]
+                                         {:id (.toString (:manga/id manga))
+                                          :name (:manga/name manga)
+                                          :description (:manga/description manga)
+                                          :preview_id (when (:manga_page/id manga) (.toString (:manga_page/id manga)))
+                                          :like_count (:like_count manga)
+                                          :manga_group_id (when (:manga/manga_group_id manga) (.toString (:manga/manga_group_id manga)))})
+                                       (infra/get-manga-list
+                                        {:limit limit
+                                         :offset offset
+                                         :name (when name (str "%" name "%"))
+                                         :liked-manga liked
+                                         :order-by order-by
+                                         :tags tags}
+                                        user-id))}))}}]
      ["/manga"
       {:tags [:manga]
        :get {:responses {200 {:body ::full_manga}}

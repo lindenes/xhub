@@ -5,6 +5,7 @@
             [taoensso.carmine :as car :refer [wcar]]
             [next.jdbc.sql :as sql]
             [xhub-team.errors :as err]
+            [clojure.string :as clj-str]
             [reitit.ring.middleware.parameters :as parameters])
   (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]
             [org.postgresql.util PGobject]
@@ -142,11 +143,11 @@
     (jdbc/execute! stmt)))
 
 (defn generate-tag-filter [tags]
-  (loop [acc "mg.tag_id in ("
-         remaining tags]
-    (if (= 1 (count remaining))
-      (str acc "?" ")")
-      (recur (str acc "?,") (rest remaining)))))
+  (if (empty? tags)
+    nil
+    (str "mg.tag_id in ("
+         (clojure.string/join "," (repeat (count tags) "?"))
+         ")")))
 
 (defn generate-order-by [value]
   (condp = value
@@ -154,28 +155,33 @@
     "order by created_at asc"
     nil))
 
-(defn build-filters [filters]
+(defn build-filters [filters user-id]
+  (println filters user-id)
   (let [filter-list (remove nil?
                             [(when (:tags filters) (generate-tag-filter (:tags filters)))
                              (when (:name filters) "manga.name ILIKE ?")
+                             (when (and (true? (:liked-manga filters)) (not-empty user-id))
+                               "manga.id in (select manga_id from manga_like where user_id = cast(? as uuid))")
                              (when (:order_by filters) (generate-order-by (:order_by filters)))])]
-    (loop [acc "where "
-           remaining filter-list]
-      (if (= 1 (count remaining))
-        (str acc (first remaining))
-        (recur (str acc (first remaining) " and ") (rest remaining))))))
+    (if (empty? filter-list)
+      ""
+      (str "where " (clj-str/join " and " filter-list)))))
 
-(defn get-manga-list [filters]
+(defn get-manga-list [filters user-id]
   (let [sql (str "with manga_list as (SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, manga.manga_group_id, mp.id, (select count(*) from manga_like ml where ml.manga_id = manga.id) as like_count
                  FROM manga manga
                  left join manga_page mp ON mp.manga_id = manga.id
                  left join manga_tag mg on mg.manga_id = manga.id "
-                 (when (or (:name filters) (:tags filters)) (build-filters filters))
+                 (when (or (:name filters) (:tags filters) (:liked-manga filters)) (build-filters filters user-id))
                  ")"
                  " select * from manga_list "
                  (generate-order-by (:order_by filters))
                  "limit ? offset ?")
-        params (remove nil? (vec (concat (:tags filters) [(:name filters) (:limit filters) (:offset filters)])))]
+        params (remove nil? (vec (concat (:tags filters) [(:name filters)
+                                                          (when (and (true? (:liked-manga filters)) (not-empty user-id)) user-id)
+                                                          (:limit filters)
+                                                          (:offset filters)])))]
+    (println sql params)
     (jdbc/execute! datasource (into [sql] params))))
 
 (defn get-manga-by-id [id]
