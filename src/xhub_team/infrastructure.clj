@@ -145,48 +145,52 @@
 (defn generate-tag-filter [tags]
   (if (empty? tags)
     nil
-    (str "mg.tag_id in ("
+    (str "exists ( select 1 from manga_tag mt where mt.manga_id = m.id and mt.tag_id in ("
          (clojure.string/join "," (repeat (count tags) "?"))
-         ")")))
+         "))")))
 
 (defn generate-order-by [value]
   (condp = value
     0
-    "order by created_at asc"
+    "order by m.created_at asc"
+    1
+    "order by m.created_at desc"
     nil))
 
 (defn build-filters [filters user-id]
-  (println filters user-id)
   (let [filter-list (remove nil?
                             [(when (:tags filters) (generate-tag-filter (:tags filters)))
-                             (when (:name filters) "manga.name ILIKE ?")
+                             (when (:name filters) "m.name ILIKE ?")
                              (when (and (true? (:liked-manga filters)) (not-empty user-id))
-                               "manga.id in (select manga_id from manga_like where user_id = cast(? as uuid))")
-                             (when (:order_by filters) (generate-order-by (:order_by filters)))])]
+                               "m.id in (select manga_id from manga_like where user_id = cast(? as uuid))")
+                             (when (:author filters) "m.author_id = cast (? as uuid)")
+                             (when (:order-by filters) (generate-order-by (:order-by filters)))])]
     (if (empty? filter-list)
       ""
       (str "where " (clj-str/join " and " filter-list)))))
 
 (defn get-manga-list [filters user-id]
-  (let [sql (str "with manga_list as (
-                    SELECT DISTINCT ON(manga.id) manga.id, manga.name, manga.description, 
-                    manga.manga_group_id, mp.id, 
-                    (select count(*) from manga_like ml where ml.manga_id = manga.id) as like_count,
-                    exists (select manga_id from manga_like where manga_id = manga.id) as liked
-                    FROM manga manga
-                    left join manga_page mp ON mp.manga_id = manga.id
-                    left join manga_tag mg on mg.manga_id = manga.id "
-                 (when (or (:name filters) (:tags filters) (:liked-manga filters)) (build-filters filters user-id))
-                 ")"
-                 " select * from manga_list "
-                 (generate-order-by (:order_by filters))
-                 "limit ? offset ?")
+  (let [sql (str "WITH filtered_manga AS (
+                    SELECT m.*
+                    FROM manga m "
+                 (when (or (:name filters) (:tags filters) (:liked-manga filters) (:author filters)) (build-filters filters user-id))
+                 (generate-order-by (:order-by filters))
+                 " LIMIT ? OFFSET ?)"
+                 "SELECT
+                    fm.*,
+                    (SELECT id FROM manga_page WHERE manga_id = fm.id LIMIT 1) as preview_id,
+                    (SELECT COUNT(*) FROM manga_like WHERE manga_id = fm.id) as like_count,
+                    EXISTS (SELECT 1 FROM manga_like WHERE manga_id = fm.id) as liked
+                  FROM
+                    filtered_manga fm;")
         params (remove nil? (vec (concat (:tags filters) [(:name filters)
                                                           (when (and (true? (:liked-manga filters)) (not-empty user-id)) user-id)
+                                                          (:author filters)
                                                           (:limit filters)
                                                           (:offset filters)])))]
-    (println sql params)
     (jdbc/execute! datasource (into [sql] params))))
+
+(get-manga-list {:limit 5 :offset 0 :order-by 1} nil)
 
 (defn get-manga-by-id [id]
   (let [uuid (try (UUID/fromString id)
@@ -194,7 +198,8 @@
                     (throw (ex-info (.getMessage e) err/is-not-uuid-error))))]
     (with-open [conn (jdbc/get-connection datasource)
                 stmt (jdbc/prepare conn ["select m.id, m.name, m.description, m.created_at, array_agg(mp.id) as pages,
-                                         m.manga_group_id,
+                                         m.manga_group_id, m.author_id,
+                                         (select login from \"user\" where id = m.author_id) as author_login,
                                          COALESCE( (
                                             SELECT json_agg(json_build_object('id', m2.id,
                                             'name', m2.name,
@@ -208,14 +213,16 @@
                                         where m.id = ?
                                         group by m.id" uuid])]
       (let [result (jdbc/execute! stmt)
-            manga (try (first result)
-                       (catch Exception _ (throw (ex-info "not found manga in database" err/not_found_manga_by_id_error))))]
+            manga (first result)]
+        (when (nil? manga) (throw (ex-info "not found manga in database" err/not_found_manga_by_id_error)))
         {:id (.toString (:manga/id manga))
          :name (:manga/name manga)
          :description (:manga/description manga)
          :manga_group_id (some-> manga :manga/manga_group_id str)
          :created_at (.toString (:manga/created_at manga))
          :manga_group (<-pgobject (:manga_group manga))
+         :author_id (str (:manga/author_id manga))
+         :author_login (:author_login manga)
          :page_list (->> (.getArray (:pages manga)) (filter some?) (mapv str))}))))
 
 (defn create-manga [name description manga_group_id author-id]

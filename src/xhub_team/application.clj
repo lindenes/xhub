@@ -91,8 +91,12 @@
 (s/def ::manga (s/keys :req-un [::id ::name ::preview_id ::like_count ::liked] :opt-un [::description ::manga_group_id]))
 (s/def ::manga_list (s/coll-of ::manga))
 (s/def ::manga_id_list (s/coll-of ::id))
+(s/def ::author_id string?)
+(s/def ::author_login (s/nilable string?))
 
-(s/def ::full_manga (s/keys :req-un [::id ::name ::created_at ::page_list] :opt-un [::manga_group_id ::manga_group ::description]))
+(s/def ::full_manga (s/keys
+                     :req-un [::id ::name ::created_at ::page_list ::author_id]
+                     :opt-un [::manga_group_id ::manga_group ::description ::author_login]))
 
 (s/def :search/limit nat-int?)
 (s/def :search/offset nat-int?)
@@ -100,6 +104,7 @@
 (s/def :search/order_by (s/nilable int?))
 (s/def :search/tags (s/nilable (s/coll-of int?)))
 (s/def :search/liked boolean?)
+(s/def :search/author string?)
 
 (s/def ::email (s/nilable string?))
 (s/def ::password (s/nilable string?))
@@ -188,10 +193,11 @@
                                          :opt-un [:search/name
                                                   :search/order_by
                                                   :search/tags
-                                                  :search/liked])}
+                                                  :search/liked
+                                                  :search/author])}
               :handler (fn [req]
                          (let [body (-> req :parameters :body)
-                               {:keys [limit offset name order-by tags liked]} body
+                               {:keys [limit offset name order_by tags liked author]} body
                                header_token (get (:headers req) "token")
                                user-id (try
                                          (:id (infra/redis->user header_token))
@@ -212,8 +218,9 @@
                                          :offset offset
                                          :name (when name (str "%" name "%"))
                                          :liked-manga liked
-                                         :order-by order-by
-                                         :tags tags}
+                                         :order-by order_by
+                                         :tags tags
+                                         :author author}
                                         user-id))}))}}]
      ["/manga"
       {:tags [:manga]
