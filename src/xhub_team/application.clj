@@ -209,7 +209,7 @@
                                          {:id (.toString (:manga/id manga))
                                           :name (:manga/name manga)
                                           :description (:manga/description manga)
-                                          :preview_id (when (:manga_page/id manga) (.toString (:manga_page/id manga)))
+                                          :preview_id (when (:preview_id manga) (.toString (:preview_id manga)))
                                           :like_count (:like_count manga)
                                           :manga_group_id (when (:manga/manga_group_id manga) (.toString (:manga/manga_group_id manga)))
                                           :liked (:liked manga)})
