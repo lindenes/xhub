@@ -6,7 +6,8 @@
             [next.jdbc.sql :as sql]
             [xhub-team.errors :as err]
             [clojure.string :as clj-str]
-            [reitit.ring.middleware.parameters :as parameters])
+            [reitit.ring.middleware.parameters :as parameters]
+            [org.httpkit.client :as hk-client])
   (:import  [com.zaxxer.hikari HikariDataSource HikariConfig]
             [org.postgresql.util PGobject]
             [java.util UUID]
@@ -319,3 +320,22 @@
       :name (:tag/name row)})
    (select-sql-request {:table-name "tag"
                         :columns ["id" "name"]})))
+
+(defn check-privileges [token manga-id]
+  (let [manga-id->uuid (try (java.util.UUID/fromString manga-id)
+                            (catch Exception e (throw (ex-info (.getMessage e) err/is-not-uuid-error))))
+        user (wcar* (car/get token))
+        author-id (-> (with-open [conn (jdbc/get-connection datasource)
+                                  stmt (jdbc/prepare conn ["select author_id from manga where id = ?" manga-id->uuid])]
+                        (jdbc/execute! stmt))
+                      first
+                      :manga/author_id
+                      str)]
+    (when (nil? user) (throw (ex-info "not found user in storage" err/user-not-auth)))
+    (= (:id user) author-id)))
+
+(defn delete-manga [manga-id token]
+  (hk-client/delete (str
+                     (:manga-stream-url (conf/config :application))
+                     "/manga?manga_id=" manga-id
+                     "&with_manga=true") {:headers {"Token" token}}))

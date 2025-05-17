@@ -16,7 +16,8 @@
             [clojure.data.json :as json]
             [xhub-team.errors :as err]
             [xhub-team.domain :as domain]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [ring.middleware.params :as params]))
 
 (defn cors-middleware [handler]
   (fn [request]
@@ -235,7 +236,16 @@
                          (let [body (-> req :parameters :body)
                                token  (get (:headers req) "token")]
                            {:status 200
-                            :body {:id  (domain/create-manga (:name body) (:description body) (:manga-group-id body) token)}}))}}]
+                            :body {:id  (domain/create-manga (:name body) (:description body) (:manga-group-id body) token)}}))}
+       :delete {:responses {200 {:body nil}}
+                :parameters {:query {:id string?} :headers {:token string?}}
+                :handler (fn [req]
+                           (let [params (-> req :parameters :query)
+                                 token (get (:headers req) "token")
+                                 have-privileges (infra/check-privileges token (:id params))]
+                             (when-not have-privileges (throw (ex-info "user hase not privileges" err/load-delete-permission-error)))
+                             (infra/delete-manga (:id params) token)
+                             {:status 200}))}}]
      ["/manga-group"
       {:tags [:manga-group]
        :post {:responses {200 {:body {:id string?}}}

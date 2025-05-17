@@ -33,3 +33,7 @@
 
 (def is-not-uuid-error
   {:error-data (list {:error_code 9 :error_message "Не удалось преобразовать в UUID"})})
+
+(def load-delete-permission-error
+  {:error-data (list {:error_code 5 :error_message "Для загрузки или удаления изображений нужно быть автором или администратором"})})
+

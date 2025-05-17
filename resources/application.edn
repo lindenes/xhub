@@ -2,7 +2,8 @@
             :user #env XHUB_DATABASE_USER
             :password #env XHUB_DATABASE_PASSWORD}
 
- :application {:port #env XHUB_SERVER_PORT}
+ :application {:port #env XHUB_SERVER_PORT
+               :manga-stream-url #env XHUB_MANGA_STREAM_URL}
  :smtp {:host #env XHUB_SMPTP_HOST
         :auth-enable #env XHUB_SMTP_AUTH_ENABLE
         :tls-enable #env XHUB_SMTP_TLS_ENABLE
