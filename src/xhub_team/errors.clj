@@ -35,5 +35,8 @@
   {:error-data (list {:error_code 9 :error_message "Не удалось преобразовать в UUID"})})
 
 (def load-delete-permission-error
-  {:error-data (list {:error_code 5 :error_message "Для загрузки или удаления изображений нужно быть автором или администратором"})})
+  {:error-data (list {:error_code 10 :error_message "Для загрузки или удаления изображений нужно быть автором или администратором"})})
+
+(def request-to-manga-stream-exception
+  {:error-data (list {:error_code 11 :error_message "Ошибка удаления манги"})})
 

@@ -227,7 +227,6 @@
          :page_list (->> (.getArray (:pages manga)) (filter some?) (mapv str))}))))
 
 (defn create-manga [name description manga_group_id author-id]
-  (println name description manga_group_id author-id)
   (->  (insert-sql-request {:table-name "manga"
                             :columns ["id", "name" "description" "manga_group_id" "author_id"]
                             :values [(java.util.UUID/randomUUID)
@@ -335,7 +334,10 @@
     (= (:id user) author-id)))
 
 (defn delete-manga [manga-id token]
-  (hk-client/delete (str
-                     (:manga-stream-url (conf/config :application))
-                     "/manga?manga_id=" manga-id
-                     "&with_manga=true") {:headers {"Token" token}}))
+  (let [{:keys [status headers body error] :as response}
+        @(hk-client/delete (str
+                            (:manga-stream-url (conf/config :application))
+                            "/manga?manga_id=" manga-id
+                            "&with_manga=true") {:headers {"Token" token}})]
+    (when (or (not (= status 200)) (not (nil? error)))
+      (throw (ex-info "manga stream request error" err/request-to-manga-stream-exception)))))

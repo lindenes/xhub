@@ -62,6 +62,15 @@
                         8
                         {:status 400 :body error-data}
 
+                        9
+                        {:status 400 :body error-data}
+
+                        10
+                        {:status 400 :body error-data}
+
+                        11
+                        {:status 400 :body error-data}
+
                         {:status 500 :body "Unexpected server error"}))]
       (-> error-map
           (assoc :body (json/write-str (:body error-map)))
